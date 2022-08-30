@@ -134,7 +134,7 @@ def extract_cve(d, refs, cpes, cisa):
 
 
 def export_csv(d, filename):
-    with open(filename, 'w') as f:
+    with open(filename, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, d[0].keys())
         f.write("#")
         w.writeheader()
@@ -161,7 +161,7 @@ files = glob.glob("data/*.json")
 for file in files:
     # Otvori originalnu CVE bazu
     print("Processing: ", file)
-    f = open(file)
+    f = open(file, encoding="utf8")
     d = json.load(f)
     f.close()
 
