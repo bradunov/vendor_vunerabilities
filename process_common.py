@@ -194,8 +194,8 @@ def extract_cpe(cpe_uri):
 
 
 secrets = {
-    "la_workspace_id": "c6aa906b-1a52-432b-8e7c-2e69e0a2bc2a",
-    "la_primary_key": "HZYk8LXYnZ4ppZnksk96R6VnobyaI+N184V8+R0m2PmRVu1hRSoZm0Hg3bgyOp7wDE0Ney5bGQOyg/aRN9f0bw=="   
+    "la_workspace_id": "XXXXX",
+    "la_primary_key": "XXXXX"   
 }
 
 
