@@ -152,12 +152,12 @@ reg_domains = {
 def extract_tld(fqdn):
     if ":" in fqdn:
         a = fqdn.split(":")
-        fqdn = a[0]
+        fqdn = a[0].strip()
 
     a = fqdn.lower().split(".")
 
     if a[-1] not in reg_domains.keys():
-        print(a[-1], a)
+        print("Unknown domain:", a[-1], a)
         return fqdn
 
     if len(a) >= 2 and a[-2] not in reg_domains[a[-1]]:
@@ -179,15 +179,15 @@ def extract_assigner(assigner_mail):
 
 
 def extract_ref_dom(url):
-    long_dom = url.split("/")[2].lower()
+    long_dom = url.split("/")[2].lower().strip()
     dom = extract_tld(long_dom)
     return dom, long_dom
 
 def extract_cpe(cpe_uri):
     ac = cpe_uri.lower().split(":")
-    vendor = ac[3]
-    product = ac[4]
-    version = ac[5]
+    vendor = ac[3].strip()
+    product = ac[4].strip()
+    version = ac[5].strip()
     return vendor, product, version
 
        
