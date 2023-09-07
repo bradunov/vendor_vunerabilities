@@ -108,39 +108,49 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                 new_ref["CISAVendorNAME"] = v["NAME"]
                 new_ref["CISAVendorImportant"] = v["IMPORTANT"]
 
-                #industry(vi) = Vendor.xls -> column J ’Industrial’ for vendor.vend.name(vi)==vendor.kev(vi) 
-                new_ref["CISAIndustry"] = v["Industrial"].strip().lower() == "industry"
-                #os(vi) = Vendor.xls -> column I ‘isOpenSource’ for vendor.vend.name(vi)==vendor.kev(vi) 
-                new_ref["CISAisOSS"] = v["isOpenSource"].strip().lower() == "1"
-
-                # psirt(vi)= Vendor.xls -> column AA ‘isPSIRT’ 
-                # vadvisory(vi)= Vendor.xls -> column AF ‘Advisory’ 
-                # vdpolicy(vi)= Vendor.xls -> column AG ‘VulnDiscPolicy’ 
-                # contact(vi)= Vendor.xls -> column AH ‘Contact’ 
-                # bugbounty(vi)= Vendor.xls -> column AI ‘BugBounty2’ 
-
-                new_ref["psirt"] = v["isPSIRT"]
-                new_ref["vadvisory"] = v["Advisory"]
-                new_ref["vdpolicy"] = v["VulnDiscPolicy"]
-                new_ref["contact"] = v["Contact"]
-                new_ref["bugbounty"] = v["BugBounty2"]
 
                 if new_ref["CISAVendorImportant"] == "1":
-                    new_ref["CVSS"] = new_ref["v3BaseScore"]
-                    new_ref["POC"] = False
+
+                    ### Confounding variables
+
+                    #industry(vi) = Vendor.xls -> column J ’Industrial’ for vendor.vend.name(vi)==vendor.kev(vi) 
+                    new_ref["CF_CISAIndustry"] = v["Industrial"].strip().lower() == "industry"
+                    #os(vi) = Vendor.xls -> column I ‘isOpenSource’ for vendor.vend.name(vi)==vendor.kev(vi) 
+                    new_ref["CF_CISAisOSS"] = v["isOpenSource"].strip().lower() == "1"
+
+                    new_ref["CF_CVSS"] = new_ref["v3BaseScore"]
+                    new_ref["CF_POC"] = False
 
                     # poc.nvd(vi) = 1 if CVE	.json file -> references:reference_data:tag==’exploit’ (not CISA), else =0 
                     contains_explot = any(item.get('tag').lower() == 'exploit' for item in new_ref["tags"])
                     # poc.edb(vi) = 1 if CVE(vi)∈EDB database, else =0 
                     contains_explot = contains_explot or cve_id in file_exploits.keys()
                     if contains_explot:
-                        new_ref["POC"] = True
+                        new_ref["CF_POC"] = True
 
                     # patch(vi) =1  (if in CISA) 
-                    new_ref["PATCH"] = True
+                    new_ref["CF_PATCH"] = True
 
                     #supplychaincnt(vi) = CVE.json file -> CPE count 
-                    new_ref["SUP_CHAIN"] = new_ref["cpe_vendors"]
+                    new_ref["CF_SUP_CHAIN"] = len(new_ref["cpe_vendors"])
+
+
+
+                    ### Risk factors
+
+                    # psirt(vi)= Vendor.xls -> column AA ‘isPSIRT’ 
+                    # vadvisory(vi)= Vendor.xls -> column AF ‘Advisory’ 
+                    # vdpolicy(vi)= Vendor.xls -> column AG ‘VulnDiscPolicy’ 
+                    # contact(vi)= Vendor.xls -> column AH ‘Contact’ 
+                    # bugbounty(vi)= Vendor.xls -> column AI ‘BugBounty2’ 
+
+                    new_ref["GP_psirt"] = v["isPSIRT"]
+                    new_ref["GP_vadvisory"] = v["Advisory"]
+                    new_ref["GP_vdpolicy"] = v["VulnDiscPolicy"]
+                    new_ref["GP_contact"] = v["Contact"]
+                    new_ref["GP_bugbounty"] = v["BugBounty2"]
+
+
 
                     C.append(new_ref)
                     Ccnt += 1
@@ -160,6 +170,12 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                 any(item.get('tag').lower() == 'vendor advisory' for item in new_ref["tags"]) or \
                 any(item.get('tag').lower() == 'third party advisory' for item in new_ref["tags"])
             
+            if not patch:
+                continue
+            else: 
+                new_ref["PATCH"] = True
+
+
             # if vendor.nvd.vadv (cvi) ∈ {Vendors.xls column AB ‘VendorAdv’ field} 
             vendor_adv = None
             for item in new_ref["tags"]:
@@ -180,7 +196,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                         DEBUG["ND1"].append(new_ref)
                         ND1cnt += 1
 
-
+                
             if not vendor:
                 # vendor.nvd.assigner(cvi) = CVE.JSON field cve:CVE_data_meta:ASSIGNER  
                 assigner = cve["cve"]["CVE_data_meta"]["ASSIGNER"]
@@ -192,9 +208,9 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                     new_ref["VendorAssigner"] = assigner
                     new_ref["VendorImportant"] = v["IMPORTANT"]
                     new_ref["VendorNAME"] = v["NAME"]
-
-                # Ne razumem sta radim ako nije pronadjen assigner
-                # To ce biti previse cesto
+                else:  
+                    DEBUG["ND2"].append(new_ref)
+                    ND2cnt += 1
 
 
             if not vendor:
@@ -212,23 +228,6 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
             if vendor:
 
-                #industry(vi) = Vendor.xls -> column J ’Industrial’ for vendor.vend.name(vi)==vendor.kev(vi) 
-                new_ref["CISAIndustry"] = vendor["Industrial"].strip().lower() == "industry"
-                #os(vi) = Vendor.xls -> column I ‘isOpenSource’ for vendor.vend.name(vi)==vendor.kev(vi) 
-                new_ref["CISAisOSS"] = vendor["isOpenSource"].strip().lower() == "1"
-
-                # psirt(vi)= Vendor.xls -> column AA ‘isPSIRT’ 
-                # vadvisory(vi)= Vendor.xls -> column AF ‘Advisory’ 
-                # vdpolicy(vi)= Vendor.xls -> column AG ‘VulnDiscPolicy’ 
-                # contact(vi)= Vendor.xls -> column AH ‘Contact’ 
-                # bugbounty(vi)= Vendor.xls -> column AI ‘BugBounty2’ 
-
-                new_ref["psirt"] = vendor["isPSIRT"]
-                new_ref["vadvisory"] = vendor["Advisory"]
-                new_ref["vdpolicy"] = vendor["VulnDiscPolicy"]
-                new_ref["contact"] = vendor["Contact"]
-                new_ref["bugbounty"] = vendor["BugBounty2"]
-
                 # Add missing fields
                 if "VendorAdv" not in new_ref.keys():
                     new_ref["VendorAdv"] = ""
@@ -238,14 +237,48 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                     new_ref["VendorCPE"] = ""
 
 
+                ### Confounding variables
+
+                #industry(vi) = Vendor.xls -> column J ’Industrial’ for vendor.vend.name(vi)==vendor.kev(vi) 
+                new_ref["CF_CISAIndustry"] = vendor["Industrial"].strip().lower() == "industry"
+                #os(vi) = Vendor.xls -> column I ‘isOpenSource’ for vendor.vend.name(vi)==vendor.kev(vi) 
+                new_ref["CF_CISAisOSS"] = vendor["isOpenSource"].strip().lower() == "1"
+
+                new_ref["CF_CVSS"] = new_ref["v3BaseScore"]
+                new_ref["CF_POC"] = False
+
+                # poc.nvd(vi) = 1 if CVE	.json file -> references:reference_data:tag==’exploit’ (not CISA), else =0 
+                contains_explot = any(item.get('tag').lower() == 'exploit' for item in new_ref["tags"])
+                # poc.edb(vi) = 1 if CVE(vi)∈EDB database, else =0 
+                contains_explot = contains_explot or cve_id in file_exploits.keys()
+                if contains_explot:
+                    new_ref["CF_POC"] = True
+
+                # patch(vi) =1  (if in CISA) 
+                new_ref["CF_PATCH"] = True
+
+                #supplychaincnt(vi) = CVE.json file -> CPE count 
+                new_ref["CF_SUP_CHAIN"] = len(new_ref["cpe_vendors"])
+
+
+                ### Risk factors
+
+                # psirt(vi)= Vendor.xls -> column AA ‘isPSIRT’ 
+                # vadvisory(vi)= Vendor.xls -> column AF ‘Advisory’ 
+                # vdpolicy(vi)= Vendor.xls -> column AG ‘VulnDiscPolicy’ 
+                # contact(vi)= Vendor.xls -> column AH ‘Contact’ 
+                # bugbounty(vi)= Vendor.xls -> column AI ‘BugBounty2’ 
+                new_ref["GP_psirt"] = vendor["isPSIRT"]
+                new_ref["GP_vadvisory"] = vendor["Advisory"]
+                new_ref["GP_vdpolicy"] = vendor["VulnDiscPolicy"]
+                new_ref["GP_contact"] = vendor["Contact"]
+                new_ref["GP_bugbounty"] = vendor["BugBounty2"]
+
+
+
                 NC.append(new_ref)
                 Ncnt += 1
 
-
-
-
-            # debug["ND2"].append(new_ref)
-            # ND2cnt += 1
 
         cnt += 1
 
@@ -272,104 +305,110 @@ def export_csv(d, filename):
 
 
 
-# Load EDB (exploits)
-file_exploits = {}
-with open('files_exploits.csv', newline='') as csvfile:
-    cvsreader = csv.reader(csvfile, delimiter=',')
-    cnt = 0
-    for row in cvsreader:
-        if cnt > 0:
-            # Example (1046): OSVDB-17251;CVE-2005-2236;CVE-2005-2232
-            cves = row[11].split(";")
-            for cve in cves:
-                if cve[0:len("CVE-")] == "CVE-":
-                    file_exploits[cve] = row
-            
-        cnt += 1
-print(f"Total exploits: {len(file_exploits)}")
-#print(json.dumps(file_exploits, indent=2))
 
 
 
-# Load CISA
-cisa = {}
-with open('cisa_known_exploited_vulnerabilities.csv', newline='') as csvfile:
-    cvsreader = csv.reader(csvfile, delimiter=',')
-    cnt = 0
-    for row in cvsreader:
-        if cnt > 0:
-            cisa[row[0]] = {
-                "vendorProject": row[1],
-                "dateAdded": row[4]
-            }
-        cnt += 1
-#print(json.dumps(cisa, indent=2))
-print(f"Total CISA: {len(cisa)}")
+if __name__ == "__main__":
 
 
-# Load Vendors
-vendors = {
-    "KEV name": {},
-    "advisory": {},
-    "assigner": {},
-    "cpe": {}
-}
-with open('Vendors.csv', newline='') as csvfile:
-    cvsreader = csv.reader(csvfile, delimiter=',')
-    cnt = 0
-    for row in cvsreader:
-        if cnt > 0:
-            v = {}
-            for i in range(len(row)):
-                v[head[i]] = row[i]
-            #DEBUG
-            if v["KEV name"].find(",") != -1:
-                print("Vendors DEBUG:", v)
-            vendors["KEV name"][v["KEV name"].strip().lower()] = v
-            vendors["advisory"][v["VendorAdv"].strip().lower()] = v
-            vendors["assigner"][v["assigner"].strip().lower()] = v
-            vendors["cpe"][v["CPE"].strip().lower()] = v
-        else:
-            head = row
-            head[0] = "NAME"
-        cnt += 1
-#print(json.dumps(vendors, indent=2))
-print(f"Total vendors: {len(vendors['KEV name'])}/{len(vendors['advisory'])}/{len(vendors['assigner'])}/{len(vendors['cpe'])}")
-
-C = []
-NC = []
-DEBUG = {
-    "CD1" : [],
-    "CD2" : [],
-    "ND1" : [],
-    "ND2" : []
-}
-
-files = glob.glob("data/*.json") 
-#files = ["data/nvdcve-1.1-2021.json"]
-#files = ["data/nvdcve-1.1-2019.json"]
-
-for file in files:
-    # Otvori originalnu CVE bazu
-    print("Processing: ", file)
-    f = open(file, encoding="utf8")
-    d = json.load(f)
-    f.close()
-    print("CVEs:", len(d))
-
-    C, NC, DEBUG = extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits)
+    # Load EDB (exploits)
+    file_exploits = {}
+    with open('files_exploits.csv', newline='') as csvfile:
+        cvsreader = csv.reader(csvfile, delimiter=',')
+        cnt = 0
+        for row in cvsreader:
+            if cnt > 0:
+                # Example (1046): OSVDB-17251;CVE-2005-2236;CVE-2005-2232
+                cves = row[11].split(";")
+                for cve in cves:
+                    if cve[0:len("CVE-")] == "CVE-":
+                        file_exploits[cve] = row
+                
+            cnt += 1
+    print(f"Total exploits: {len(file_exploits)}")
+    #print(json.dumps(file_exploits, indent=2))
 
 
 
-print("\nStore:")
-#print(C)
-#print(json.dumps(refs, indent=2))
-export_csv(C, "C.csv")
-export_csv(NC, "NC.csv")
-export_csv(DEBUG["CD1"], "CD1.csv")
-export_csv(DEBUG["CD2"], "CD2.csv")
-export_csv(DEBUG["ND1"], "ND1.csv")
-export_csv(DEBUG["ND2"], "ND2.csv")
+    # Load CISA
+    cisa = {}
+    with open('cisa_known_exploited_vulnerabilities.csv', newline='') as csvfile:
+        cvsreader = csv.reader(csvfile, delimiter=',')
+        cnt = 0
+        for row in cvsreader:
+            if cnt > 0:
+                cisa[row[0]] = {
+                    "vendorProject": row[1],
+                    "dateAdded": row[4]
+                }
+            cnt += 1
+    #print(json.dumps(cisa, indent=2))
+    print(f"Total CISA: {len(cisa)}")
+
+
+    # Load Vendors
+    vendors = {
+        "KEV name": {},
+        "advisory": {},
+        "assigner": {},
+        "cpe": {}
+    }
+    with open('Vendors.csv', newline='') as csvfile:
+        cvsreader = csv.reader(csvfile, delimiter=',')
+        cnt = 0
+        for row in cvsreader:
+            if cnt > 0:
+                v = {}
+                for i in range(len(row)):
+                    v[head[i]] = row[i]
+                #DEBUG
+                if v["KEV name"].find(",") != -1:
+                    print("Vendors DEBUG:", v)
+                vendors["KEV name"][v["KEV name"].strip().lower()] = v
+                vendors["advisory"][v["VendorAdv"].strip().lower()] = v
+                vendors["assigner"][v["assigner"].strip().lower()] = v
+                vendors["cpe"][v["CPE"].strip().lower()] = v
+            else:
+                head = row
+                head[0] = "NAME"
+            cnt += 1
+    #print(json.dumps(vendors, indent=2))
+    print(f"Total vendors: {len(vendors['KEV name'])}/{len(vendors['advisory'])}/{len(vendors['assigner'])}/{len(vendors['cpe'])}")
+
+    C = []
+    NC = []
+    DEBUG = {
+        "CD1" : [],
+        "CD2" : [],
+        "ND1" : [],
+        "ND2" : []
+    }
+
+    files = glob.glob("data/*.json") 
+    #files = ["data/nvdcve-1.1-2021.json"]
+    #files = ["data/nvdcve-1.1-2019.json"]
+
+    for file in files:
+        # Otvori originalnu CVE bazu
+        print("Processing: ", file)
+        f = open(file, encoding="utf8")
+        d = json.load(f)
+        f.close()
+        print("CVEs:", len(d))
+
+        C, NC, DEBUG = extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits)
+
+
+
+    print("\nStore:")
+    #print(C)
+    #print(json.dumps(refs, indent=2))
+    export_csv(C, "C.csv")
+    export_csv(NC, "NC.csv")
+    export_csv(DEBUG["CD1"], "CD1.csv")
+    export_csv(DEBUG["CD2"], "CD2.csv")
+    export_csv(DEBUG["ND1"], "ND1.csv")
+    export_csv(DEBUG["ND2"], "ND2.csv")
 
 
 
