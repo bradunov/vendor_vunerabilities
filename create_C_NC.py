@@ -263,6 +263,7 @@ def export_csv(d, filename):
         print(f"File {filename} empty")
         return
     with open(filename, 'w', newline='', encoding='utf-8') as f:
+        print(f"Exporting {filename} with {len(d)} entries")
         w = csv.DictWriter(f, d[0].keys())
         f.write("#")
         w.writeheader()
@@ -285,6 +286,7 @@ with open('files_exploits.csv', newline='') as csvfile:
                     file_exploits[cve] = row
             
         cnt += 1
+print(f"Total exploits: {len(file_exploits)}")
 #print(json.dumps(file_exploits, indent=2))
 
 
@@ -302,6 +304,7 @@ with open('cisa_known_exploited_vulnerabilities.csv', newline='') as csvfile:
             }
         cnt += 1
 #print(json.dumps(cisa, indent=2))
+print(f"Total CISA: {len(cisa)}")
 
 
 # Load Vendors
@@ -331,7 +334,7 @@ with open('Vendors.csv', newline='') as csvfile:
             head[0] = "NAME"
         cnt += 1
 #print(json.dumps(vendors, indent=2))
-
+print(f"Total vendors: {len(vendors['KEV name'])}/{len(vendors['advisory'])}/{len(vendors['assigner'])}/{len(vendors['cpe'])}")
 
 C = []
 NC = []
@@ -352,6 +355,7 @@ for file in files:
     f = open(file, encoding="utf8")
     d = json.load(f)
     f.close()
+    print("CVEs:", len(d))
 
     C, NC, DEBUG = extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits)
 
