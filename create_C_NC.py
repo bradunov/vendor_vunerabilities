@@ -310,10 +310,9 @@ def export_csv(d, filename):
 
 if __name__ == "__main__":
 
-
     # Load EDB (exploits)
     file_exploits = {}
-    with open('files_exploits.csv', newline='') as csvfile:
+    with open('files_exploits.csv', encoding="utf8", newline='') as csvfile:
         cvsreader = csv.reader(csvfile, delimiter=',')
         cnt = 0
         for row in cvsreader:
@@ -332,7 +331,7 @@ if __name__ == "__main__":
 
     # Load CISA
     cisa = {}
-    with open('cisa_known_exploited_vulnerabilities.csv', newline='') as csvfile:
+    with open('cisa_known_exploited_vulnerabilities.csv', encoding="utf8", newline='') as csvfile:
         cvsreader = csv.reader(csvfile, delimiter=',')
         cnt = 0
         for row in cvsreader:
@@ -353,7 +352,7 @@ if __name__ == "__main__":
         "assigner": {},
         "cpe": {}
     }
-    with open('Vendors.csv', newline='') as csvfile:
+    with open('Vendors.csv', encoding="utf8", newline='') as csvfile:
         cvsreader = csv.reader(csvfile, delimiter=',')
         cnt = 0
         for row in cvsreader:
