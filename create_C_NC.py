@@ -80,25 +80,28 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
 
         # Recursively go through CPEs
-        def rec(nodes, cpe_vendors):
+        def rec(nodes, cpe_vendors, cpe_vendor_product):
             for n in nodes:
                 for k,v in n.items():
                     if k == "children":
-                        cpe_vendors = rec(v, cpe_vendors)
+                        cpe_vendors, cpe_vendor_product = rec(v, cpe_vendors, cpe_vendor_product)
                     elif k == "cpe_match":
                         for cm in v:
                             if cm["vulnerable"]:
                                 vendor, product, version = extract_cpe(cm["cpe23Uri"])
                                 cpe_vendors.add(vendor)
+                                cpe_vendor_product.add(vendor+"_"+product)
 
-            return cpe_vendors
+            return cpe_vendors, cpe_vendor_product
 
 
         # CPEs (one entry per CPE vendor)
         cpe_vendors = set()
-        cpe_vendors = rec(cve["configurations"]["nodes"], cpe_vendors)
+        cpe_vendor_product = set()
+        cpe_vendors, cpe_vendor_product = rec(cve["configurations"]["nodes"], cpe_vendors, cpe_vendor_product)
 
         new_ref["cpe_vendors"] = cpe_vendors
+        new_ref["cpe_vendor_product"] = cpe_vendor_product
 
 
         if new_ref["isCISA"]:
@@ -114,9 +117,9 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                     ### Confounding variables
 
                     #industry(vi) = Vendor.xls -> column J ’Industrial’ for vendor.vend.name(vi)==vendor.kev(vi) 
-                    new_ref["CF_CISAIndustry"] = v["Industrial"].strip().lower() == "industry"
+                    new_ref["CF_Industry"] = v["Industrial"].strip().lower()
                     #os(vi) = Vendor.xls -> column I ‘isOpenSource’ for vendor.vend.name(vi)==vendor.kev(vi) 
-                    new_ref["CF_CISAisOSS"] = v["isOpenSource"].strip().lower() == "1"
+                    new_ref["CF_isOSS"] = v["isOpenSource"].strip().lower() == "1"
 
                     new_ref["CF_CVSS"] = new_ref["v3BaseScore"]
                     new_ref["CF_POC"] = False
@@ -133,6 +136,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
                     #supplychaincnt(vi) = CVE.json file -> CPE count 
                     new_ref["CF_SUP_CHAIN"] = len(new_ref["cpe_vendors"])
+                    new_ref["CF_SUP_CHAIN_PROD"] = len(new_ref["cpe_vendor_product"])
 
 
 
@@ -193,7 +197,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                         new_ref["VendorImportant"] = v["IMPORTANT"]
                         new_ref["VendorNAME"] = v["NAME"]
                     else:
-                        DEBUG["ND1"].append(new_ref)
+                        DEBUG["ND1"].append({"cve_id": cve_id})
                         ND1cnt += 1
 
                 
@@ -209,7 +213,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                     new_ref["VendorImportant"] = v["IMPORTANT"]
                     new_ref["VendorNAME"] = v["NAME"]
                 else:  
-                    DEBUG["ND2"].append(new_ref)
+                    DEBUG["ND1"].append({"cve_id": cve_id})
                     ND2cnt += 1
 
 
@@ -240,9 +244,9 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                 ### Confounding variables
 
                 #industry(vi) = Vendor.xls -> column J ’Industrial’ for vendor.vend.name(vi)==vendor.kev(vi) 
-                new_ref["CF_CISAIndustry"] = vendor["Industrial"].strip().lower() == "industry"
+                new_ref["CF_Industry"] = vendor["Industrial"].strip().lower()
                 #os(vi) = Vendor.xls -> column I ‘isOpenSource’ for vendor.vend.name(vi)==vendor.kev(vi) 
-                new_ref["CF_CISAisOSS"] = vendor["isOpenSource"].strip().lower() == "1"
+                new_ref["CF_isOSS"] = vendor["isOpenSource"].strip().lower() == "1"
 
                 new_ref["CF_CVSS"] = new_ref["v3BaseScore"]
                 new_ref["CF_POC"] = False
@@ -259,6 +263,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
                 #supplychaincnt(vi) = CVE.json file -> CPE count 
                 new_ref["CF_SUP_CHAIN"] = len(new_ref["cpe_vendors"])
+                new_ref["CF_SUP_CHAIN_PROD"] = len(new_ref["cpe_vendor_product"])
 
 
                 ### Risk factors
@@ -385,8 +390,10 @@ if __name__ == "__main__":
     }
 
     files = glob.glob("data/*.json") 
+    #files = ["data/nvdcve-1.1-2020.json"]
     #files = ["data/nvdcve-1.1-2021.json"]
-    #files = ["data/nvdcve-1.1-2019.json"]
+    #files = ["data/nvdcve-1.1-2022.json"]
+    #files = ["data/nvdcve-1.1-2023.json"]
 
     for file in files:
         # Otvori originalnu CVE bazu
