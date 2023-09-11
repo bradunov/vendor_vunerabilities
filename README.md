@@ -21,9 +21,9 @@ https://gitlab.com/exploit-database/exploitdb
 
 Required data files:
 - `files_exploits.csv` from exploitdb
-- `cisa_known_exploited_vulnerabilities.csv`
+- `cisa_known_exploited_vulnerabilities.csv` (only 2020-2023)
 - `Vendors.csv`, exported from Vendors.xls
-- `nvdcve-1.1-202*.json` in data/ directory
+- `nvdcve-1.1-202*.json` in data/ directory (import only json2020-2023)
 
 To run:
 - `python3 create_C_NC.py`
@@ -31,5 +31,5 @@ To run:
 Outputs:
 - `C.csv`: C set
 - `N.csv`: N set
-- `?D?.csv`: various debug outputs with CVEs that need to be checked
+- `Debug*.csv`: various debug outputs with CVEs that need to be checked
 
