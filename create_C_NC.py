@@ -11,15 +11,18 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
     cnt = 0
     Ccnt = 0
     Ncnt = 0
-    CD1cnt = 0
-    CD2cnt = 0
-    ND1cnt = 0
-    ND2cnt = 0
+    Debug_inCISA_notimpcnt = 0
+    Debug_inCISA_notinVendorscnt = 0
+    Debug_VA_notimpcnt = 0
+    Debug_notin_assignerscnt = 0
+
+    # For every CVE from json (?) do:
     for cve in d["CVE_Items"]:
         cve_id = cve["cve"]["CVE_data_meta"]["ID"]
 
         new_ref = {"cve_id" : cve_id}
 
+        #set default value
         new_ref["isCISA"] = False
         new_ref["CISAExploitDate"] = None
         new_ref["CISAVendorProject"] = None
@@ -34,12 +37,13 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
         assigner_mail = cve["cve"]["CVE_data_meta"]["ASSIGNER"].lower()
         _assigner_user, new_ref["assigner_tld"] = extract_assigner(assigner_mail)
 
-        # Example: NVD-CWE-noinfo
+        # Extract CWE - Example: NVD-CWE-noinfo
         if len(cve["cve"]["problemtype"]["problemtype_data"][0]["description"]) > 0:
             new_ref["type"] = cve["cve"]["problemtype"]["problemtype_data"][0]["description"][0]["value"]
         else:
             new_ref["type"] = ""
 
+        #record date published and modified
         new_ref["publishedDate"] = cve["publishedDate"]
         new_ref["lastModifiedDate"] = cve["lastModifiedDate"]
 
@@ -61,9 +65,11 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
         # References
         ref_cnt = 0
+        #define ref types we are interested in, and read values (URLs)
         aRefTypes = ["Vendor Advisory", "Patch", "Mitigation", "Release Notes", "Exploit"]
         aref_data = cve["cve"]["references"]["reference_data"]
 
+        #for each CVE now record type of tag, and value of the extracted domain (vendor)
         new_ref["tags"] = []
 
         for rd in aref_data:
@@ -79,7 +85,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
 
 
-        # Recursively go through CPEs
+        # Read CPE vendor from CVEs: Recursively go through CPEs
         def rec(nodes, cpe_vendors, cpe_vendor_product):
             for n in nodes:
                 for k,v in n.items():
@@ -95,7 +101,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
             return cpe_vendors, cpe_vendor_product
 
 
-        # CPEs (one entry per CPE vendor)
+        # CPEs (one entry per CPE vendor): vendor and vendor product
         cpe_vendors = set()
         cpe_vendor_product = set()
         cpe_vendors, cpe_vendor_product = rec(cve["configurations"]["nodes"], cpe_vendors, cpe_vendor_product)
@@ -104,8 +110,13 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
         new_ref["cpe_vendor_product"] = cpe_vendor_product
 
 
+
+        # Creating set C
         if new_ref["isCISA"]:
+
+            # ???Not clear what next line does? 'If CISA vendor in KEV list in Vendor file'? tj. sta je .get(...)
             v = vendors["KEV name"].get(new_ref["CISAVendorProject"].strip().lower())
+            # ??if v<>0 then.. ?
             if v:
                 new_ref["CISAKEVName"] = v["KEV name"]
                 new_ref["CISAVendorNAME"] = v["NAME"]
@@ -159,13 +170,14 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                     C.append(new_ref)
                     Ccnt += 1
                 else:
-                    DEBUG["CD1"].append(new_ref)
-                    CD1cnt += 1
+                    DEBUG["Debug_inCISA_notimp"].append(new_ref)
+                    Debug_inCISA_notimpcnt += 1
             else:
-                DEBUG["CD2"].append(new_ref)
-                CD2cnt += 1
+                DEBUG["Debug_inCISA_notinVendors"].append(new_ref)
+                Debug_inCISA_notinVendorscnt += 1
         else:
-
+        #Creating set NC
+            # capturing cf(patch)
             # if CVE.json -> references:reference_data:tag == ‘patch’ OR ‘mitigation’ OR ‘release note’ OR ‘vendor advisory’ OR ‘third party advisory’,  
             # then patch(cvi) = CVE.json -> references:reference_data:tag  
             patch = any(item.get('tag').lower() == 'patch' for item in new_ref["tags"]) or \
@@ -179,8 +191,10 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
             else: 
                 new_ref["PATCH"] = True
 
-
-            # if vendor.nvd.vadv (cvi) ∈ {Vendors.xls column AB ‘VendorAdv’ field} 
+            # capturing vendor name
+            # starting with vendor advisory:
+            # reading the tags, and for each tag that is ='vendor adv' read extracted domain from ref
+            # /if vendor.nvd.vadv (cvi) ∈ {Vendors.xls column AB ‘VendorAdv’ field} /
             vendor_adv = None
             for item in new_ref["tags"]:
                 if item.get('tag').lower() == 'vendor advisory':
@@ -188,8 +202,10 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                     break
             
             vendor = None
+            # if vend_adv<>0 then
             if vendor_adv:
                 v = vendors["advisory"].get(vendor_adv.strip().lower())
+                # ?? then if vendor_adv@Vendors.xls for it  <> 0 (ie it exists in Vendors) ? else print for debug
                 if v:
                     if v["IMPORTANT"] == "1":
                         vendor = v
@@ -197,15 +213,18 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                         new_ref["VendorImportant"] = v["IMPORTANT"]
                         new_ref["VendorNAME"] = v["NAME"]
                     else:
-                        DEBUG["ND1"].append({"cve_id": cve_id})
-                        ND1cnt += 1
+                        DEBUG["Debug_VA_notimp"].append(new_ref)
+                        Debug_VA_notimpcnt += 1
 
-                
+            # !!!  ubaciti ND0: print if vend_adv<>0 but not in Vendors (dakle korak ispred 'Important')
+
+            # ?? if vend_adv=0 ie can't read vendor from there??
             if not vendor:
+                # reading assigner and checking vendor per assigner name
                 # vendor.nvd.assigner(cvi) = CVE.JSON field cve:CVE_data_meta:ASSIGNER  
                 assigner = cve["cve"]["CVE_data_meta"]["ASSIGNER"]
 
-                # if vendor.nvd.assigner(cvi) ∈ {Vendors.xls Column X ‘assigner’ field}
+                # if vendor.nvd.assigner(cvi) ∈ {Vendors.xls Column X ‘assigner’ field}, else print for debug
                 v = vendors["assigner"].get(assigner.strip().lower())
                 if v:
                     vendor = v
@@ -213,10 +232,10 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                     new_ref["VendorImportant"] = v["IMPORTANT"]
                     new_ref["VendorNAME"] = v["NAME"]
                 else:  
-                    DEBUG["ND1"].append({"cve_id": cve_id})
-                    ND2cnt += 1
+                    DEBUG["Debug_notin_assigners"].append(new_ref)
+                    Debug_notin_assignerscnt += 1
 
-
+            # if vendor is not among assigners either, then extract from CPE:
             if not vendor:
                 #if vendor.nvd.cpe(cvi) ∈ {Vendors.xls -> Colum Y ‘CPE’} 
                 for cpev in new_ref["cpe_vendors"]:
@@ -230,6 +249,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                             break
 
 
+            # if vendor is recognised, then read cf and gp, else skip
             if vendor:
 
                 # Add missing fields
@@ -291,7 +311,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
         # if Ncnt > 5:
         #     break
 
-    print(f"Stats: {cnt} {Ccnt} {Ncnt} {CD1cnt} {CD2cnt} {ND1cnt} {ND2cnt}")
+    print(f"Stats: {cnt} {Ccnt} {Ncnt} {Debug_inCISA_notimpcnt} {Debug_inCISA_notinVendorscnt} {Debug_VA_notimpcnt} {Debug_notin_assignerscnt}")
 
     return C, NC, DEBUG
 
@@ -382,10 +402,10 @@ if __name__ == "__main__":
     C = []
     NC = []
     DEBUG = {
-        "CD1" : [],
-        "CD2" : [],
-        "ND1" : [],
-        "ND2" : []
+        "Debug_inCISA_notimp" : [],
+        "Debug_inCISA_notinVendors" : [],
+        "Debug_VA_notimp" : [],
+        "Debug_notin_assigners" : []
     }
 
     files = glob.glob("data/*.json") 
@@ -411,10 +431,10 @@ if __name__ == "__main__":
     #print(json.dumps(refs, indent=2))
     export_csv(C, "C.csv")
     export_csv(NC, "NC.csv")
-    export_csv(DEBUG["CD1"], "CD1.csv")
-    export_csv(DEBUG["CD2"], "CD2.csv")
-    export_csv(DEBUG["ND1"], "ND1.csv")
-    export_csv(DEBUG["ND2"], "ND2.csv")
+    export_csv(DEBUG["Debug_inCISA_notimp"], "Debug_inCISA_notimp.csv")
+    export_csv(DEBUG["Debug_inCISA_notinVendors"], "Debug_inCISA_notinVendors.csv")
+    export_csv(DEBUG["Debug_VA_notimp"], "Debug_VA_notimp.csv")
+    export_csv(DEBUG["Debug_notin_assigners"], "Debug_notin_assigners.csv")
 
 
 
