@@ -84,6 +84,7 @@ def similar(c, nc):
         return False
     return True
 
+    # !! Iznad dodati: if (c[vendor]<>nc[vendor]) jer ne smeju biti isti vendori za sample i case
 
 
 def get_stats(C):

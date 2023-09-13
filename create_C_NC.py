@@ -216,7 +216,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                         DEBUG["Debug_VA_notimp"].append(new_ref)
                         Debug_VA_notimpcnt += 1
 
-            # !!!  ubaciti ND0: print if vend_adv<>0 but not in Vendors (dakle korak ispred 'Important')
+            # !!  ubaciti ND0: print if vend_adv<>0 but not in Vendors (dakle korak ispred 'Important')
 
             # ?? if vend_adv=0 ie can't read vendor from there??
             if not vendor:
@@ -311,17 +311,20 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
         # if Ncnt > 5:
         #     break
 
-    print(f"Stats: {cnt} {Ccnt} {Ncnt} {Debug_inCISA_notimpcnt} {Debug_inCISA_notinVendorscnt} {Debug_VA_notimpcnt} {Debug_notin_assignerscnt}")
+    print(f"Stats - no. entries (total CVE, C, NC, Debug files): {cnt} {Ccnt} {Ncnt} {Debug_inCISA_notimpcnt} {Debug_inCISA_notinVendorscnt} {Debug_VA_notimpcnt} {Debug_notin_assignerscnt}")
 
     return C, NC, DEBUG
 
-
+# izbacuje fajlove: C, NC, i sve Debug - sa brojem unosa u svakom
 def export_csv(d, filename):
     if len(d) == 0:
         print(f"File {filename} empty")
         return
     with open(filename, 'w', newline='', encoding='utf-8') as f:
         print(f"Exporting {filename} with {len(d)} entries")
+
+        # !! dodati i broj razlicitih vendora u toj listi
+
         w = csv.DictWriter(f, d[0].keys())
         f.write("#")
         w.writeheader()
@@ -385,7 +388,7 @@ if __name__ == "__main__":
                 v = {}
                 for i in range(len(row)):
                     v[head[i]] = row[i]
-                #DEBUG
+                #DEBUG  ?? sta je  -1?
                 if v["KEV name"].find(",") != -1:
                     print("Vendors DEBUG:", v)
                 vendors["KEV name"][v["KEV name"].strip().lower()] = v
@@ -397,7 +400,7 @@ if __name__ == "__main__":
                 head[0] = "NAME"
             cnt += 1
     #print(json.dumps(vendors, indent=2))
-    print(f"Total vendors: {len(vendors['KEV name'])}/{len(vendors['advisory'])}/{len(vendors['assigner'])}/{len(vendors['cpe'])}")
+    print(f"Total vendors (KEV name, advisory, assigner, cpe): {len(vendors['KEV name'])}/{len(vendors['advisory'])}/{len(vendors['assigner'])}/{len(vendors['cpe'])}")
 
     C = []
     NC = []
@@ -421,7 +424,7 @@ if __name__ == "__main__":
         d = json.load(f)
         f.close()
         print("CVEs:", len(d))
-
+        # ?? sta je ovaj print? izbacuje CVEs: 6 za sve json fajlove
         C, NC, DEBUG = extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits)
 
 
