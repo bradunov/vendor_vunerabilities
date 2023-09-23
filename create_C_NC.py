@@ -4,7 +4,7 @@ import glob
 import csv
 
 from process_common import extract_assigner, extract_ref_dom, extract_cpe
-
+# !! in process_common check the list of tlds - added some missing; but results print error on 'http' and 'https' - to check why?
 
 def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
@@ -27,13 +27,13 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
         new_ref["CISAExploitDate"] = None
         new_ref["CISAVendorProject"] = None
 
-        # Add CISA references if any
+        # Add CISA references if any - if cve_id is in cisa xls
         if cve_id in cisa.keys():
             new_ref["isCISA"] = True
             new_ref["CISAExploitDate"] = cisa[cve_id]["dateAdded"]
             new_ref["CISAVendorProject"] = cisa[cve_id]["vendorProject"]
 
-        # Extract assigners (e.g. security@android.com)
+        # Extract assigners (e.g. security@android.com) za svaki json unos
         assigner_mail = cve["cve"]["CVE_data_meta"]["ASSIGNER"].lower()
         _assigner_user, new_ref["assigner_tld"] = extract_assigner(assigner_mail)
 
@@ -111,12 +111,15 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
 
 
-        # Creating set C
+        # Creating set C:
+        # for each CVE that has 'isCISA' field active:
         if new_ref["isCISA"]:
 
-            # ???Not clear what next line does? 'If CISA vendor in KEV list in Vendor file'? tj. sta je .get(...)
+            # .get fatches value of CISA vendor name from CISA file
+            # v becomes a value from Vendors.xls providing its KEV name field is same as the fatched CISA vendor name
+            # (ie: if CISA name exists among KEV, v gets Vendor.xls for that KEV name, otherwise it returns 0)
             v = vendors["KEV name"].get(new_ref["CISAVendorProject"].strip().lower())
-            # ??if v<>0 then.. ?
+            # if v<>0 then we record from Vendors.xls: Kev Name, Name, important
             if v:
                 new_ref["CISAKEVName"] = v["KEV name"]
                 new_ref["CISAVendorNAME"] = v["NAME"]
@@ -191,10 +194,13 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
             else: 
                 new_ref["PATCH"] = True
 
-            # capturing vendor name
+
+            # CAPTURING VENDOR NAME
+
             # starting with vendor advisory:
             # reading the tags, and for each tag that is ='vendor adv' read extracted domain from ref
             # /if vendor.nvd.vadv (cvi) ∈ {Vendors.xls column AB ‘VendorAdv’ field} /
+            # here: vendor_adv becomes the url from ref source 
             vendor_adv = None
             for item in new_ref["tags"]:
                 if item.get('tag').lower() == 'vendor advisory':
@@ -202,10 +208,15 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                     break
             
             vendor = None
-            # if vend_adv<>0 then
+            # if vend_adv<>0 ie if the domain is not empty, then
             if vendor_adv:
                 v = vendors["advisory"].get(vendor_adv.strip().lower())
-                # ?? then if vendor_adv@Vendors.xls for it  <> 0 (ie it exists in Vendors) ? else print for debug
+                # ??? should change vendors["advisory"] to vendors["VendorAdv"] because of the name of field AB in Vendors.xls ??
+                # v gets the value of the stripped url from refsource for the field where it matches with field AB in Vendors.xls
+                # otherwise it becomes 0 (ie when there is no match = not in the Vendors.xls)
+
+                # if v<>0 then if it is important we record from Vendors.xls: extracted vendavd domain, Name, important;
+                # else we pring a debug for those in but not important
                 if v:
                     if v["IMPORTANT"] == "1":
                         vendor = v
@@ -218,14 +229,18 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
 
             # !!  ubaciti ND0: print if vend_adv<>0 but not in Vendors (dakle korak ispred 'Important')
 
-            # ?? if vend_adv=0 ie can't read vendor from there??
+            # vend<>0 if recognising from extracting vendor advisory succeeded (it became v above);
+            # otherwise v is  still None and we proceed with finding the assigner
             if not vendor:
                 # reading assigner and checking vendor per assigner name
                 # vendor.nvd.assigner(cvi) = CVE.JSON field cve:CVE_data_meta:ASSIGNER  
                 assigner = cve["cve"]["CVE_data_meta"]["ASSIGNER"]
 
                 # if vendor.nvd.assigner(cvi) ∈ {Vendors.xls Column X ‘assigner’ field}, else print for debug
+                # v gets the value of 'assigner' field from json if it matches the 'assigner' field in vendors (ie Vendors.xls)
                 v = vendors["assigner"].get(assigner.strip().lower())
+
+                # if assigner value is not 0, then read Important, name and assigner from Vendors.xls; else mark that assigner
                 if v:
                     vendor = v
                     new_ref["VendorAssigner"] = assigner
@@ -240,6 +255,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                 #if vendor.nvd.cpe(cvi) ∈ {Vendors.xls -> Colum Y ‘CPE’} 
                 for cpev in new_ref["cpe_vendors"]:
                     v = vendors["cpe"].get(cpev.strip().lower())
+                    # should change 'cpe' to 'CPE' which is the name of the field in Vendors.xls???
                     if v:
                         if v["IMPORTANT"] == "1":
                             vendor = v
