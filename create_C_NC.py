@@ -14,6 +14,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
     Debug_inCISA_notimpcnt = 0
     Debug_inCISA_notinVendorscnt = 0
     Debug_VA_notimpcnt = 0
+    Debug_VA_notfndcnt = 0
     Debug_notin_assignerscnt = 0
 
     # For every CVE from json (?) do:
@@ -231,6 +232,9 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
                         else:
                             DEBUG["Debug_VA_notimp"].append(new_ref)
                             Debug_VA_notimpcnt += 1
+                    else:
+                        DEBUG["Debug_VA_notfnd"].append(new_ref)
+                        Debug_VA_notfndcnt += 1
 
                     if vendor:
                         break
@@ -336,7 +340,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
         # if Ncnt > 5:
         #     break
 
-    print(f"Stats - no. entries (total CVE, C, NC, Debug files): {cnt} {Ccnt} {Ncnt} {Debug_inCISA_notimpcnt} {Debug_inCISA_notinVendorscnt} {Debug_VA_notimpcnt} {Debug_notin_assignerscnt}")
+    print(f"Stats - no. entries (total CVE, C, NC, Debug files): {cnt} {Ccnt} {Ncnt} {Debug_inCISA_notimpcnt} {Debug_inCISA_notinVendorscnt} {Debug_VA_notimpcnt} {Debug_VA_notfndcnt} {Debug_notin_assignerscnt}")
 
     return C, NC, DEBUG
 
@@ -433,6 +437,7 @@ if __name__ == "__main__":
         "Debug_inCISA_notimp" : [],
         "Debug_inCISA_notinVendors" : [],
         "Debug_VA_notimp" : [],
+        "Debug_VA_notfnd" : [],
         "Debug_notin_assigners" : []
     }
 
@@ -462,6 +467,7 @@ if __name__ == "__main__":
     export_csv(DEBUG["Debug_inCISA_notimp"], "Debug_inCISA_notimp.csv")
     export_csv(DEBUG["Debug_inCISA_notinVendors"], "Debug_inCISA_notinVendors.csv")
     export_csv(DEBUG["Debug_VA_notimp"], "Debug_VA_notimp.csv")
+    export_csv(DEBUG["Debug_VA_notfnd"], "Debug_VA_notfnd.csv")
     export_csv(DEBUG["Debug_notin_assigners"], "Debug_notin_assigners.csv")
 
 
