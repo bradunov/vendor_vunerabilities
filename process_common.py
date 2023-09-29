@@ -208,6 +208,8 @@ def extract_ref_dom(url):
     url = url.replace("https://https://", "https://")
     long_dom = url.split("/")[2].lower().strip()
     dom = extract_tld(long_dom)
+    if url.startswith("https://github.com/"):
+        dom = url[len("https://github.com/"):].split("/")[0]
     return dom, long_dom
 
 def extract_cpe(cpe_uri):

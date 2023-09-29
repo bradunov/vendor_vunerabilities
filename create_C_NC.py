@@ -73,13 +73,14 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
         new_ref["tags"] = []
 
         for rd in aref_data:
-            dom, _ = extract_ref_dom(rd["url"])
+            dom, long_dom = extract_ref_dom(rd["url"])
 
             for tag in rd["tags"]:
                 if tag in aRefTypes:
                     new_ref["tags"].append({
                         "tag" : tag,
-                        "refSource" : dom
+                        "refSource" : dom,
+                        "refSourceLong" : long_dom
                     })
 
 
