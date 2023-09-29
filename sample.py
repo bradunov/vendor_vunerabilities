@@ -55,6 +55,15 @@ def load_data(filename):
 
 
 
+
+def equal_vendors(c, nc):
+    # if (c[vendor]<>nc[vendor]) return, jer ne smeju biti isti vendori za sample i case
+    if c["CISAVendorNAME"].strip().lower() == nc["VendorNAME"].strip().lower():
+        return True
+    else:
+        return False
+
+
 # CVSS: "baseScore 3" scope: round() +-1 
 # e.g. 4.3-> 4, similarity: 3-5 
 # POC: equal (either in EDB or ‘exploit’ reference tag in NVD) 
@@ -84,7 +93,6 @@ def similar(c, nc):
         return False
     return True
 
-    # !! Iznad dodati: if (c[vendor]<>nc[vendor]) jer ne smeju biti isti vendori za sample i case
 
 
 def get_stats(C):
@@ -166,7 +174,7 @@ if __name__ == "__main__":
     for c in C:
         cnt = 0
         for nc in NC:
-            if similar(c, nc):
+            if similar(c, nc) and not equal_vendors(c, nc):
                 cnt += 1
         if cnt < 10:
             print(f"{c['cve_id']} {cnt}")
