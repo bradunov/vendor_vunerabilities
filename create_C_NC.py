@@ -72,18 +72,25 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
         #for each CVE now record type of tag, and value of the extracted domain (vendor)
         new_ref["tags"] = []
 
+        foundVendorAdv = []
         for rd in aref_data:
             dom, long_dom = extract_ref_dom(rd["url"])
 
             for tag in rd["tags"]:
                 if tag in aRefTypes:
+                    if tag == "Vendor Advisory":
+                        if not dom in foundVendorAdv:
+                            foundVendorAdv.append(dom)
                     new_ref["tags"].append({
                         "tag" : tag,
                         "refSource" : dom,
                         "refSourceLong" : long_dom
                     })
 
-
+        if len(foundVendorAdv) > 1:
+            new_ref["multipleTags"] = foundVendorAdv
+        else:
+            new_ref["multipleTags"] = []
 
 
         # Read CPE vendor from CVEs: Recursively go through CPEs
