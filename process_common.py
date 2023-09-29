@@ -204,6 +204,8 @@ def extract_assigner(assigner_mail):
 
 
 def extract_ref_dom(url):
+    # Some entries have bugs, like: https://https://www.abc.com, which happens sufficiently often
+    url = url.replace("https://https://", "https://")
     long_dom = url.split("/")[2].lower().strip()
     dom = extract_tld(long_dom)
     return dom, long_dom
