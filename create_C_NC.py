@@ -209,31 +209,32 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
             # reading the tags, and for each tag that is ='vendor adv' read extracted domain from ref
             # /if vendor.nvd.vadv (cvi) ∈ {Vendors.xls column AB ‘VendorAdv’ field} /
             # here: vendor_adv becomes the url from ref source 
+            vendor = None
             vendor_adv = None
             for item in new_ref["tags"]:
                 if item.get('tag').lower() == 'vendor advisory':
                     vendor_adv = item.get('refSource')
-                    break
             
-            vendor = None
-            # if vend_adv<>0 ie if the domain is not empty, then
-            if vendor_adv:
-                v = vendors["advisory"].get(vendor_adv.strip().lower())
-                # ??? should change vendors["advisory"] to vendors["VendorAdv"] because of the name of field AB in Vendors.xls ??
-                # v gets the value of the stripped url from refsource for the field where it matches with field AB in Vendors.xls
-                # otherwise it becomes 0 (ie when there is no match = not in the Vendors.xls)
+                    v = vendors["advisory"].get(vendor_adv.strip().lower())
+                    # ??? should change vendors["advisory"] to vendors["VendorAdv"] because of the name of field AB in Vendors.xls ??
+                    # v gets the value of the stripped url from refsource for the field where it matches with field AB in Vendors.xls
+                    # otherwise it becomes 0 (ie when there is no match = not in the Vendors.xls)
 
-                # if v<>0 then if it is important we record from Vendors.xls: extracted vendavd domain, Name, important;
-                # else we pring a debug for those in but not important
-                if v:
-                    if v["IMPORTANT"] == "1":
-                        vendor = v
-                        new_ref["VendorAdv"] = vendor_adv
-                        new_ref["VendorImportant"] = v["IMPORTANT"]
-                        new_ref["VendorNAME"] = v["NAME"]
-                    else:
-                        DEBUG["Debug_VA_notimp"].append(new_ref)
-                        Debug_VA_notimpcnt += 1
+                    # if v<>0 then if it is important we record from Vendors.xls: extracted vendavd domain, Name, important;
+                    # else we pring a debug for those in but not important
+                    if v:
+                        if v["IMPORTANT"] == "1":
+                            vendor = v
+                            new_ref["VendorAdv"] = vendor_adv
+                            new_ref["VendorImportant"] = v["IMPORTANT"]
+                            new_ref["VendorNAME"] = v["NAME"]
+                        else:
+                            DEBUG["Debug_VA_notimp"].append(new_ref)
+                            Debug_VA_notimpcnt += 1
+
+                    if vendor:
+                        break
+
 
             # !!  ubaciti ND0: print if vend_adv<>0 but not in Vendors (dakle korak ispred 'Important')
 
