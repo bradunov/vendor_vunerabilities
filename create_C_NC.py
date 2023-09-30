@@ -1,3 +1,4 @@
+import argparse
 import json
 from datetime import datetime
 import glob
@@ -6,7 +7,7 @@ import csv
 from process_common import extract_assigner, extract_ref_dom, extract_cpe
 # !! in process_common check the list of tlds - added some missing
 
-def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
+def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
 
     cnt = 0
     Ccnt = 0
@@ -16,6 +17,8 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
     Debug_VA_notimpcnt = 0
     Debug_VA_notfndcnt = 0
     Debug_notin_assignerscnt = 0
+    Debug_cpe_not_importantcnt = 0
+    Debug_cpe_notin_vendorscnt = 0
 
     # For every CVE from json (?) do:
     for cve in d["CVE_Items"]:
@@ -213,87 +216,163 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits):
             # /if vendor.nvd.vadv (cvi) ∈ {Vendors.xls column AB ‘VendorAdv’ field} /
             # here: vendor_adv becomes the url from ref source 
             vendor = None
-            vendor_adv = None
-            for item in new_ref["tags"]:
-                if item.get('tag').lower() == 'vendor advisory':
-                    vendor_adv = item.get('refSource')
-            
-                    v = vendors["advisory"].get(vendor_adv.strip().lower())
-     
-                    # v gets the value of the stripped url from refsource for the field where it matches with field AB in Vendors.xls
-                    # otherwise it becomes 0 (ie when there is no match = not in the Vendors.xls)
 
-                    # if v<>0 then if it is important we record from Vendors.xls: extracted vendavd domain, Name, important;
-                    # else we pring a debug for those in but not important
-                    if v:
-                        if v["IMPORTANT"] == "1":
-                            vendor = v
-                            new_ref["VendorAdv"] = vendor_adv
-                            new_ref["VendorImportant"] = v["IMPORTANT"]
-                            new_ref["VendorNAME"] = v["NAME"]
+            if not use_cpe:
+                vendor_adv = None
+                for item in new_ref["tags"]:
+                    if item.get('tag').lower() == 'vendor advisory':
+                        vendor_adv = item.get('refSource')
+                
+                        v = vendors["advisory"].get(vendor_adv.strip().lower())
+        
+                        # v gets the value of the stripped url from refsource for the field where it matches with field AB in Vendors.xls
+                        # otherwise it becomes 0 (ie when there is no match = not in the Vendors.xls)
+
+                        # if v<>0 then if it is important we record from Vendors.xls: extracted vendavd domain, Name, important;
+                        # else we pring a debug for those in but not important
+                        if v:
+                            if v["IMPORTANT"] == "1":
+                                vendor = v
+                                new_ref["VendorAdv"] = vendor_adv
+                                new_ref["VendorImportant"] = v["IMPORTANT"]
+                                new_ref["VendorNAME"] = v["NAME"]
+                            else:
+                                # ova dva ispod dodata da bi debug lista imala info koji mi trebaju
+                                new_ref["VendorAdv"] = vendor_adv
+                                new_ref["VendorNAME"] = v["NAME"]
+                                new_ref["VendorImportant"] = v["IMPORTANT"]
+                                DEBUG["Debug_VA_notimp"].append(new_ref)
+                                Debug_VA_notimpcnt += 1
                         else:
-                            # ova dva ispod dodata da bi debug lista imala info koji mi trebaju
-                            new_ref["VendorAdv"] = vendor_adv
-                            new_ref["VendorNAME"] = v["NAME"]
-                            new_ref["VendorImportant"] = v["IMPORTANT"]
-                            DEBUG["Debug_VA_notimp"].append(new_ref)
-                            Debug_VA_notimpcnt += 1
-                    else:
-                        DEBUG["Debug_VA_notfnd"].append(new_ref)
-                        Debug_VA_notfndcnt += 1
+                            DEBUG["Debug_VA_notfnd"].append(new_ref)
+                            Debug_VA_notfndcnt += 1
 
-                    if vendor:
+                        if vendor:
+                            break
+
+
+                # !!  ubaciti ND0: print if vend_adv<>0 but not in Vendors (dakle korak ispred 'Important')
+
+                # 2) Per Vendor Advisory:
+
+                # vend<>0 if recognising from extracting vendor advisory succeeded (it became v above);
+                # otherwise v is  still None and we proceed with finding the assigner
+                if not vendor:
+                    # reading assigner and checking vendor per assigner name
+                    assignertld = new_ref["assigner_tld"]
+
+
+                    # if vendor.nvd.assigner(cvi) ∈ {Vendors.xls Column X ‘assigner’ field}, else print for debug
+                    # v gets the value of 'assigner' field from json if it matches the 'assigner' field in vendors (ie Vendors.xls)
+                                    
+                    v = vendors["assigner"].get(assignertld.strip().lower())
+
+                    # !! Ovde iznad je postojao problem: poredio je vendors.assigner sa assigner iz json u neskracenoj formi
+                    # umesto toga stavljamo da proverava u skracenoj formi - zato ide assignertld.strip a ne assigner.strip
+
+
+                    # if assigner value is not 0, then read Important, name and assigner from Vendors.xls; else mark that assigner
+                    if v:
+                        vendor = v
+                        new_ref["VendorAssigner"] = assignertld
+                        new_ref["VendorImportant"] = v["IMPORTANT"]
+                        new_ref["VendorNAME"] = v["NAME"]
+                    else:  
+                        DEBUG["Debug_notin_assigners"].append(new_ref)
+                        Debug_notin_assignerscnt += 1
+
+                # 3) Per CPE:
+
+                # if vendor is not among assigners either, then extract from CPE:
+                if not vendor:
+                    #if vendor.nvd.cpe(cvi) ∈ {Vendors.xls -> Colum Y ‘CPE’} 
+                    for cpev in new_ref["cpe_vendors"]:
+                        v = vendors["cpe"].get(cpev.strip().lower())
+                        if v:
+                            if v["IMPORTANT"] == "1":
+                                vendor = v
+                                new_ref["VendorCPE"] = v["CPE"]
+                                new_ref["VendorImportant"] = v["IMPORTANT"]
+                                new_ref["VendorNAME"] = v["NAME"]
+                                break
+            else:
+
+                if len(new_ref["cpe_vendors"]) == 1:
+                    # Use only CPE
+                    for cpev in new_ref["cpe_vendors"]:
                         break
-
-
-            # !!  ubaciti ND0: print if vend_adv<>0 but not in Vendors (dakle korak ispred 'Important')
-
-            # 2) Per Vendor Advisory:
-
-            # vend<>0 if recognising from extracting vendor advisory succeeded (it became v above);
-            # otherwise v is  still None and we proceed with finding the assigner
-            if not vendor:
-                # reading assigner and checking vendor per assigner name
-                # vendor.nvd.assigner(cvi) = CVE.JSON field cve:CVE_data_meta:ASSIGNER  
-                assigner = cve["cve"]["CVE_data_meta"]["ASSIGNER"]
-
-                # Extract assigners (e.g. security@android.com) za svaki json unos
-                assignertld = None
-                _assigner_user, assignertld = extract_assigner(assigner)
-
-                # if vendor.nvd.assigner(cvi) ∈ {Vendors.xls Column X ‘assigner’ field}, else print for debug
-                # v gets the value of 'assigner' field from json if it matches the 'assigner' field in vendors (ie Vendors.xls)
-                                
-                v = vendors["assigner"].get(assignertld.strip().lower())
-
-                # !! Ovde iznad je postojao problem: poredio je vendors.assigner sa assigner iz json u neskracenoj formi
-                # umesto toga stavljamo da proverava u skracenoj formi - zato ide assignertld.strip a ne assigner.strip
-
-
-                # if assigner value is not 0, then read Important, name and assigner from Vendors.xls; else mark that assigner
-                if v:
-                    vendor = v
-                    new_ref["VendorAssigner"] = assignertld
-                    new_ref["VendorImportant"] = v["IMPORTANT"]
-                    new_ref["VendorNAME"] = v["NAME"]
-                else:  
-                    DEBUG["Debug_notin_assigners"].append(new_ref)
-                    Debug_notin_assignerscnt += 1
-
-            # 3) Per CPE:
-
-            # if vendor is not among assigners either, then extract from CPE:
-            if not vendor:
-                #if vendor.nvd.cpe(cvi) ∈ {Vendors.xls -> Colum Y ‘CPE’} 
-                for cpev in new_ref["cpe_vendors"]:
                     v = vendors["cpe"].get(cpev.strip().lower())
+
                     if v:
                         if v["IMPORTANT"] == "1":
                             vendor = v
                             new_ref["VendorCPE"] = v["CPE"]
                             new_ref["VendorImportant"] = v["IMPORTANT"]
                             new_ref["VendorNAME"] = v["NAME"]
+                        else:
+                            # Not important
+                            DEBUG["Debug_cpe_not_important"].append(new_ref)
+                            Debug_cpe_not_importantcnt += 1
+
+                            # Find important vendor from CPE tags
+                            for t in new_ref["tags"]:
+                                v1 = vendors["advisory"].get(t["refSource"].strip().lower())
+                                if v1 and v1["IMPORTANT"] == "1":
+                                    vendor = v1
+                                    new_ref["VendorCPE"] = v1["CPE"]
+                                    new_ref["VendorImportant"] = v1["IMPORTANT"]
+                                    new_ref["VendorNAME"] = v1["NAME"]
+                                    break
+                    else:
+                        # Not in vendors
+                        DEBUG["Debug_cpe_notin_vendors"].append(new_ref)
+                        Debug_cpe_notin_vendorscnt += 1
+                else:
+                    # Multiple CPEs
+                    for cpev in new_ref["cpe_vendors"]:
+                        v_cpe = vendors["cpe"].get(cpev.strip().lower())
+                        v_assign = vendors["assigner"].get(new_ref["assigner_tld"].strip().lower())
+
+                        if not v_cpe:
+                            DEBUG["Debug_cpe_notin_vendors"].append(new_ref)
+                            Debug_cpe_notin_vendorscnt += 1
+
+                        if not v_assign:
+                            DEBUG["Debug_notin_assigners"].append(new_ref)
+                            Debug_notin_assignerscnt += 1
+
+                        if v_cpe and v_assign and \
+                                v_cpe["NAME"].strip().lower() == v_assign["NAME"].strip().lower():
+                            vendor = v_cpe
+                            new_ref["VendorCPE"] = v_cpe["CPE"]
+                            new_ref["VendorImportant"] = v_cpe["IMPORTANT"]
+                            new_ref["VendorNAME"] = v_cpe["NAME"]
                             break
+                    
+                    if not vendor:
+                        # Still haven't found what I'm looking for
+                        
+                        for cpev in new_ref["cpe_vendors"]:
+                            v_cpe = vendors["cpe"].get(cpev.strip().lower())
+
+                            for t in new_ref["tags"]:
+                                for field in ["advisory", "Patch", "Mitigation", "ReleaseNote"]:
+                                    v_ref = vendors[field].get(t["refSource"].strip().lower())
+                                    if v_ref and v_ref["IMPORTANT"] == "1":
+                                        break
+
+                                if v_cpe and v_ref and \
+                                        v_cpe["NAME"].strip().lower() == v_ref["NAME"].strip().lower():
+                                    vendor = v_cpe
+                                    new_ref["VendorCPE"] = v_cpe["CPE"]
+                                    new_ref["VendorImportant"] = v_cpe["IMPORTANT"]
+                                    new_ref["VendorNAME"] = v_cpe["NAME"]
+                                    break
+
+                            if vendor:
+                                break
+
+
 
 
             # if vendor is recognised, then read cf and gp, else skip
@@ -384,6 +463,15 @@ def export_csv(d, filename):
 
 if __name__ == "__main__":
 
+    argparser = argparse.ArgumentParser(description='Process CVEs')
+    argparser.add_argument('-c', '--use_cpe', action='store_true', help='Use only CPE')
+    args = argparser.parse_args()
+    use_cpe = args.use_cpe
+
+    if use_cpe:
+        print("Using only CPE")
+
+
     # Load EDB (exploits)
     file_exploits = {}
     with open('files_exploits.csv', encoding="utf8", newline='') as csvfile:
@@ -423,6 +511,9 @@ if __name__ == "__main__":
     vendors = {
         "KEV name": {},
         "advisory": {},
+        "Patch": {},
+        "Mitigation": {},
+        "ReleaseNote": {},
         "assigner": {},
         "cpe": {}
     }
@@ -441,6 +532,9 @@ if __name__ == "__main__":
                 # ?? sta radi ovo ispod?
                 vendors["KEV name"][v["KEV name"].strip().lower()] = v
                 vendors["advisory"][v["VendorAdv"].strip().lower()] = v
+                vendors["Patch"][v["Patch"].strip().lower()] = v
+                vendors["Mitigation"][v["Mitigation"].strip().lower()] = v
+                vendors["ReleaseNote"][v["ReleaseNote"].strip().lower()] = v
                 vendors["assigner"][v["assigner"].strip().lower()] = v
                 vendors["cpe"][v["CPE"].strip().lower()] = v
             else:
@@ -457,7 +551,9 @@ if __name__ == "__main__":
         "Debug_inCISA_notinVendors" : [],
         "Debug_VA_notimp" : [],
         "Debug_VA_notfnd" : [],
-        "Debug_notin_assigners" : []
+        "Debug_notin_assigners" : [],
+        "Debug_cpe_not_important" : [],
+        "Debug_cpe_notin_vendors" : []
     }
 
     files = glob.glob("data/*.json") 
@@ -474,7 +570,7 @@ if __name__ == "__main__":
         f.close()
         print("CVEs:", len(d))
         # ?? sta je ovaj print? izbacuje CVEs: 6 za sve json fajlove
-        C, NC, DEBUG = extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits)
+        C, NC, DEBUG = extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=use_cpe)
 
 
 
@@ -487,6 +583,8 @@ if __name__ == "__main__":
     export_csv(DEBUG["Debug_inCISA_notinVendors"], "Debug_inCISA_notinVendors.csv")
     export_csv(DEBUG["Debug_VA_notimp"], "Debug_VA_notimp.csv")
     export_csv(DEBUG["Debug_VA_notfnd"], "Debug_VA_notfnd.csv")
+    export_csv(DEBUG["Debug_cpe_not_important"], "Debug_cpe_not_important.csv")
+    export_csv(DEBUG["Debug_cpe_notin_vendors"], "Debug_cpe_notin_vendors.csv")
     export_csv(DEBUG["Debug_notin_assigners"], "Debug_notin_assigners.csv")
 
 
