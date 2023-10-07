@@ -449,8 +449,9 @@ def export_csv(d, filename):
     with open(filename, 'w', newline='', encoding='utf-8') as f:
         print(f"Exporting {filename} with {len(d)} entries")
 
-
-        w = csv.DictWriter(f, d[0].keys())
+        # Added extrasaction='ignore' here as some entries have more fields than others
+        # and we don't really care about those extra fields
+        w = csv.DictWriter(f, d[0].keys(), extrasaction='ignore')
         f.write("#")
         w.writeheader()
         for r in d:
