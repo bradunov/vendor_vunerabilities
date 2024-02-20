@@ -255,7 +255,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
 
                 # !!  ubaciti ND0: print if vend_adv<>0 but not in Vendors (dakle korak ispred 'Important')
 
-                # 2) Per Assigner:
+                # 2) Per Vendor Advisory:
 
                 # vend<>0 if recognising from extracting vendor advisory succeeded (it became v above);
                 # otherwise v is  still None and we proceed with finding the assigner
@@ -302,10 +302,9 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
             else:
                 # ako ima samo jedan CPE, uzimamo njegovu vrednost
                 if len(new_ref["cpe_vendors"]) == 1:
-                    # Use only CPE
                     for cpev in new_ref["cpe_vendors"]:
                         #break -- ne mora jer radimo samo za one gde ima samo jedan CPE
-                        # !!!uvukao naredni red u petlju
+                        # uvukao naredni red u petlju
                         v = vendors["cpe"].get(cpev.strip().lower())
 
                         # v gets the value of the stripped CPE name for the field where it matches with field CPE in Vendors.xls
@@ -477,9 +476,8 @@ def export_csv(d, filename):
     with open(filename, 'w', newline='', encoding='utf-8') as f:
         print(f"Exporting {filename} with {len(d)} entries")
 
-        # Added extrasaction='ignore' here as some entries have more fields than others
-        # and we don't really care about those extra fields
-        w = csv.DictWriter(f, d[0].keys(), extrasaction='ignore')
+
+        w = csv.DictWriter(f, d[0].keys())
         f.write("#")
         w.writeheader()
         for r in d:
