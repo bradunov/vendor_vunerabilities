@@ -26,7 +26,8 @@ Required data files:
 - `nvdcve-1.1-202*.json` in data/ directory (import only json2020-2023)
 
 To run:
-- `python3 create_C_NC.py`
+- `python3 create_C_NC.py`, for Vendor advisory recognition option
+- `python3 create_C_NC.py -c`, for CPE recognition option
 
 Outputs:
 - `C.csv`: C set
