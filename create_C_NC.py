@@ -40,6 +40,8 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
         # Extract assigners (e.g. security@android.com) za svaki json unos
         assigner_mail = cve["cve"]["CVE_data_meta"]["ASSIGNER"].lower()
         _assigner_user, new_ref["assigner_tld"] = extract_assigner(assigner_mail)
+        if not new_ref["assigner_tld"]:
+            print(f'Empty assigner TLD {cve["cve"]["CVE_data_meta"]["ASSIGNER"]} for {cve["cve"]["CVE_data_meta"]["ID"]}')
 
         # Extract CWE - Example: NVD-CWE-noinfo
         if len(cve["cve"]["problemtype"]["problemtype_data"][0]["description"]) > 0:

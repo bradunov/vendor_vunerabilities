@@ -197,8 +197,14 @@ def extract_tld(fqdn):
 
 
 def extract_assigner(assigner_mail):
+    if not assigner_mail:  
+        return "", ""
+    #or URL not email -> no @ in ie starts with https://
+    if assigner_mail.startswith("https://"):
+        return "", ""
     assigner = assigner_mail.split("@")
     user = assigner[0]
+    #print(assigner_mail)
     tld = extract_tld(assigner[1])
     return user, tld
 
