@@ -3,6 +3,10 @@ import json
 
 
 
+# !!! setuj atribut pri aktiviranju koda: -p: attr=psirt, ili -b: attr=bugbounty)
+
+
+
 def stats(integer_list):
     # Calculate and display the minimum, maximum, median, and average
     minimum = min(integer_list)
@@ -10,6 +14,7 @@ def stats(integer_list):
     sorted_list = sorted(integer_list)
     n = len(integer_list)
 
+    # if number of elements is 
     if n % 2 == 0:
         median = (sorted_list[n // 2 - 1] + sorted_list[n // 2]) / 2
     else:
@@ -18,6 +23,7 @@ def stats(integer_list):
     average = sum(integer_list) / n
 
     # Calculate and display percentiles (25th, 75th, and any other desired percentiles)
+    # ???
     def calculate_percentile(sorted_list, percentile):
         k = (n - 1) * percentile / 100
         f = int(k)
@@ -31,9 +37,6 @@ def stats(integer_list):
     percentile_75 = calculate_percentile(sorted_list, 75)
 
     return minimum, maximum, median, average, percentile_25, percentile_75
-
-
-
 
 
 def load_data(filename):
@@ -55,22 +58,23 @@ def load_data(filename):
 
 
 
-
+# checking if vendors are same in cvi and svi: if (c[vendor]<>nc[vendor]) return, jer ne smeju biti isti vendori za sample i case
 def equal_vendors(c, nc):
-    # if (c[vendor]<>nc[vendor]) return, jer ne smeju biti isti vendori za sample i case
     if c["CISAVendorNAME"].strip().lower() == nc["VendorNAME"].strip().lower():
         return True
     else:
         return False
 
 
-# CVSS: "baseScore 3" scope: round() +-1 
-# e.g. 4.3-> 4, similarity: 3-5 
-# POC: equal (either in EDB or ‘exploit’ reference tag in NVD) 
-# Patch: equal (by default) 
-# Industry: equal (per type) 
-# OS: equal (0 or 1) 
-# supplychaincnt: x<10, 10<x<20, 20<x     
+# Similarity function
+    # OS: equal (0 or 1) 
+    # POC: equal (either in EDB or ‘exploit’ reference tag in NVD) 
+    # Industry: equal (per type) 
+    # CVSS: "baseScore 3" scope: round() +-1 
+    # e.g. 4.3-> 4, similarity: 3-5 
+    # Patch: equal (by default) 
+    # supplychaincnt: x<10, 10<x<20, 20<x     
+    # u zavisnoti od toga da li radimo psirt ili bugbonty, onaj drugi koristimo kao confounding takodje
 def similar(c, nc):
     # print(f"C: {json.dumps(c, indent=2)}\n")
     # print(f"NC: {json.dumps(nc, indent=2)}\n")
@@ -85,12 +89,26 @@ def similar(c, nc):
         return False
     if c["CF_Industry"] != nc["CF_Industry"]:
         return False
-    if int(c["CF_SUP_CHAIN"]) > 1 != int(nc["CF_SUP_CHAIN"]) > 1:
-        return False
-    if round(int(c["CF_SUP_CHAIN_PROD"]) / 10) != round(int(nc["CF_SUP_CHAIN_PROD"]) / 10):
-        return False
+    # razlika CVSS treba da nije veca od 1
     if abs(float(c["CF_CVSS"]) - float(nc["CF_CVSS"])) > 1:
         return False
+    # ??? treba nam slicnost prema broju: supplychaincnt: x<10, 10<x<20, 20<x
+    if int(c["CF_SUP_CHAIN"]) > 1 != int(nc["CF_SUP_CHAIN"]) > 1:
+        return False
+    #if round(int(c["CF_SUP_CHAIN_PROD"]) / 10) != round(int(nc["CF_SUP_CHAIN_PROD"]) / 10):
+    #    return False
+
+ # !!!
+    # zakljucavamo i GP koja se ne koristi kao confounding:
+  #  if not attr=psirt
+    # ako je trigger razlicit od -p pa se ne radi PSIRT, onda se koristi i PSIRT u similarity
+    #    if c["GP_psirt"] != nc["GP_psirt"]:
+    #        return False
+   # if not attr=bugbounty
+    # ako je trigger razlicit od -b pa se ne radi Bug bounty, onda se koristi i Bug bounty u similarity
+    #    if c["GP_bugbounty"] != nc["GP_bugbounty"]:
+    #        return False
+
     return True
 
 
@@ -115,6 +133,7 @@ def get_stats(C):
     S = []
     SP = []
 
+    # broji koliko je elemenata skupa sa svakom od karaktertika (nije nam mnogo vazno ali je korisno)
     for c in C:
         if c["CF_isOSS"] == "True":
             stats["CF_isOSS"] += 1
@@ -139,9 +158,8 @@ def get_stats(C):
     return stats, S, SP
 
 
-
-
 if __name__ == "__main__":
+# sta je ovo iznad?
 
     C = load_data("C.csv")
     print(f"Total C: {len(C)}")
@@ -156,6 +174,7 @@ if __name__ == "__main__":
         exit(0)
 
 
+    # radi statistiku C i NC
     st, S, SP = get_stats(C)
     print(f"C stats: {json.dumps(st, indent=2)}\n")
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(S)
@@ -169,18 +188,49 @@ if __name__ == "__main__":
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(SP)
     print(f"SP stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
 
-
+    # Sampling (proverava similarity cvi i i ncvi, i da nije isti vendor)
     l = []
+    #skup = []
     for c in C:
         cnt = 0
         for nc in NC:
             if similar(c, nc) and not equal_vendors(c, nc):
                 cnt += 1
-        if cnt < 10:
+                # !!! upisi u fajl: taj c (CVEID, CF, i GP), i odgovarajuce nc (CVE, CF, i GP) -? pravimo podskupove C sa odgovarajucim brojem parnjaka iz NC
+                #skup.append({
+                #    "cvi" : c,
+                #    "ncvi" : nc
+                #})
+        if cnt > 100:
             print(f"{c['cve_id']} {cnt}")
+            # !!!
+            # izaberi random 1 od njih (zovemo ga s - izabrani parnjak od tog c)
+            # upisi u fajl: taj c i izabrani parnjak s
+            # napravi skup S sa svim svi (append...)
         l.append(cnt)
 
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(l)
+
+
+    # !!!
+    # potrebna statistika:
+     # attribute = GP_psirt ili GP_bugbounty (setovan pri pokretanju koda)
+        # a = broj clanova C za koje je atribut=false {za attr=psirt: ...["GP_psirt"] != "1"; za attr=bugbounty: ...["GP_bugbounty"] != "1"}
+        # b = broj clanova S za koje je atribut=false
+        # c = broj clanova C za koje je atribut=true {za attr=psirt: ...["GP_psirt"] == "1"; za attr=bugbounty: ...["GP_bugbounty"] == "1"}
+        # d = broj clanova S za koje je atribut=true
+    # Racunamo:
+        # Association 1: if c/a+c < d/b+d
+        # Association 2: if a/a+c > b/b+d
+        # CER = a/a+b
+        # EER = c/c+d
+        # ARR = CER - ERR = a/a+b  –  c/c+d
+        # RR = EER/CER = c*(a+b) / a*(c+d)
+        # RRR = 1 - EER/CER
+        # Sensitivity = a/(a + c) 
+        # Specificity = d/(b + d)
+
+
 
     print(f"Similarity stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
 
