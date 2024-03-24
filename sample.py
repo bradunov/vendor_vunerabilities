@@ -1,10 +1,15 @@
 import csv
 import json
-
-
+import argparse
+from enum import Enum
+import random
 
 # !!! setuj atribut pri aktiviranju koda: -p: attr=psirt, ili -b: attr=bugbounty)
 
+class ComparisonMethod(Enum):
+    PCERT = "pcert"
+    BUGBOUNTY = "bugbounty"
+    OTHER = "other"
 
 
 def stats(integer_list):
@@ -54,6 +59,9 @@ def load_data(filename):
                     c[header[i]] = row[i].strip()
                 C.append(c)
             cnt += 1
+    # DEBUG
+    # print(json.dumps(C, indent=2))
+    # exit(0)
     return C
 
 
@@ -75,7 +83,7 @@ def equal_vendors(c, nc):
     # Patch: equal (by default) 
     # supplychaincnt: x<10, 10<x<20, 20<x     
     # u zavisnoti od toga da li radimo psirt ili bugbonty, onaj drugi koristimo kao confounding takodje
-def similar(c, nc):
+def similar(c, nc, selected_method):
     # print(f"C: {json.dumps(c, indent=2)}\n")
     # print(f"NC: {json.dumps(nc, indent=2)}\n")
     # print(f"CF_isOSS: {c['CF_isOSS']} {nc['CF_isOSS']}")
@@ -98,16 +106,13 @@ def similar(c, nc):
     #if round(int(c["CF_SUP_CHAIN_PROD"]) / 10) != round(int(nc["CF_SUP_CHAIN_PROD"]) / 10):
     #    return False
 
- # !!!
-    # zakljucavamo i GP koja se ne koristi kao confounding:
-  #  if not attr=psirt
-    # ako je trigger razlicit od -p pa se ne radi PSIRT, onda se koristi i PSIRT u similarity
-    #    if c["GP_psirt"] != nc["GP_psirt"]:
-    #        return False
-   # if not attr=bugbounty
-    # ako je trigger razlicit od -b pa se ne radi Bug bounty, onda se koristi i Bug bounty u similarity
-    #    if c["GP_bugbounty"] != nc["GP_bugbounty"]:
-    #        return False
+    if selected_method == ComparisonMethod.PCERT:
+        if c["GP_bugbounty"] != nc["GP_bugbounty"]:
+            return False
+    elif selected_method == ComparisonMethod.BUGBOUNTY:
+        if c["GP_psirt"] != nc["GP_psirt"]:
+            return False
+
 
     return True
 
@@ -158,8 +163,57 @@ def get_stats(C):
     return stats, S, SP
 
 
+
+
+def parse_arguments():
+    def validate_options(args):
+        if not any(vars(args).values()):
+            raise argparse.ArgumentTypeError("At least one option must be selected.")
+        return args
+
+    parser = argparse.ArgumentParser(description="Compare entries using different methods.")
+    parser.add_argument("-p", "--pcert", action="store_true", help="Use pcert to compare entries.")
+    parser.add_argument("-b", "--bugbounty", action="store_true", help="Use bugbounty to compare entries.")
+    parser.add_argument("-o", "--other", action="store_true", help="Use other method to compare entries.")
+    args = parser.parse_args()
+    return validate_options(args)
+
+
+
+
+def save_dict_to_json(dictionary, filename):
+    with open(filename, 'w') as json_file:
+        json.dump(dictionary, json_file, indent=4)
+
+
+def save_dict_to_csv(list_of_dicts, filename):
+    if not list_of_dicts:
+        print("Error: List of dictionaries is empty.")
+        return
+    fieldnames = list_of_dicts[0].keys()  # Assuming all dictionaries have the same keys
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in list_of_dicts:
+            writer.writerow(row)
+
+
 if __name__ == "__main__":
 # sta je ovo iznad?
+
+    args = parse_arguments()
+    selected_method = None
+
+    if args.pcert:
+        selected_method = ComparisonMethod.PCERT
+        print("Using pcert to compare entries.")
+    if args.bugbounty:
+        selected_method = ComparisonMethod.BUGBOUNTY
+        print("Using bugbounty to compare entries.")
+    if args.other:
+        selected_method = ComparisonMethod.OTHER
+        print("Using other method to compare entries.")
+
 
     C = load_data("C.csv")
     print(f"Total C: {len(C)}")
@@ -190,17 +244,17 @@ if __name__ == "__main__":
 
     # Sampling (proverava similarity cvi i i ncvi, i da nije isti vendor)
     l = []
+    NC_log = []
+    NC_pairs = []
     #skup = []
     for c in C:
         cnt = 0
+        NC_sample = []
         for nc in NC:
-            if similar(c, nc) and not equal_vendors(c, nc):
+            if similar(c, nc, selected_method) and not equal_vendors(c, nc):
                 cnt += 1
-                # !!! upisi u fajl: taj c (CVEID, CF, i GP), i odgovarajuce nc (CVE, CF, i GP) -? pravimo podskupove C sa odgovarajucim brojem parnjaka iz NC
-                #skup.append({
-                #    "cvi" : c,
-                #    "ncvi" : nc
-                #})
+                NC_sample.append(nc)
+
         if cnt > 100:
             print(f"{c['cve_id']} {cnt}")
             # !!!
@@ -208,8 +262,18 @@ if __name__ == "__main__":
             # upisi u fajl: taj c i izabrani parnjak s
             # napravi skup S sa svim svi (append...)
         l.append(cnt)
-
+        if NC_sample:
+            random_element = random.choice(NC_sample)
+            NC_pairs.append({
+                "cvi" : c,
+                "ncvi" : random_element
+            })
+            NC_log.append({
+                "cvi" : c["cve_id"],
+                "ncvi" : random_element["cve_id"]
+            })
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(l)
+    print(f"Similarity stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
 
 
     # !!!
@@ -229,14 +293,43 @@ if __name__ == "__main__":
         # RRR = 1 - EER/CER
         # Sensitivity = a/(a + c) 
         # Specificity = d/(b + d)
+    a = 0
+    b = 0
+    c = 0
+    d = 0
 
+    if selected_method == ComparisonMethod.PCERT:
+        selected_key = "GP_psirt"
+    elif selected_method == ComparisonMethod.BUGBOUNTY:
+        selected_key = "GP_bugbounty"
+    else:
+        print("Error: Selected method is not valid.")
+        exit(1)
 
+    for cs in NC_pairs:
+        cvi = cs["cvi"]
+        sample = cs["ncvi"]
 
-    print(f"Similarity stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
+        if cvi[selected_key] != "1":
+            a += 1
+        if sample[selected_key] != "1":
+            b += 1
+    c = len(NC_pairs) - a
+    d = len(NC_pairs) - b
+    CER = a/(a+b)
+    EER = c/(c+d)
+    ARR = CER - EER
+    RR = EER/CER
+    RRR = 1 - EER/CER
+    Sensitivity = a/(a + c)
+    Specificity = d/(b + d)
+    print(f"a: {a} b: {b} c: {c} d: {d}")
+    print(f"Association 1: {c/(a+c) < d/(b+d)}")
+    print(f"Association 2: {a/(a+c) > b/(b+d)}")
+    print(f"CER: {CER} EER: {EER} ARR: {ARR} RR: {RR} RRR: {RRR} Sensitivity: {Sensitivity} Specificity: {Specificity}")
 
-
-
-
+    save_dict_to_json(NC_pairs, 'NC_pairs.json')
+    save_dict_to_csv(NC_log, 'NC_log.csv')
 
 
 
