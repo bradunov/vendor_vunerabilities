@@ -4,8 +4,7 @@ import argparse
 from enum import Enum
 import random
 
-# !!! setuj atribut pri aktiviranju koda: -p: attr=psirt, ili -b: attr=bugbounty)
-
+# definisemo argumente koji ce se koristiti pri aktiviranju koda (-p: attr=psirt, -b: attr=bugbounty, other-drugo ako bude trebalo)
 class ComparisonMethod(Enum):
     PCERT = "pcert"
     BUGBOUNTY = "bugbounty"
@@ -28,7 +27,6 @@ def stats(integer_list):
     average = sum(integer_list) / n
 
     # Calculate and display percentiles (25th, 75th, and any other desired percentiles)
-    # ???
     def calculate_percentile(sorted_list, percentile):
         k = (n - 1) * percentile / 100
         f = int(k)
@@ -44,6 +42,7 @@ def stats(integer_list):
     return minimum, maximum, median, average, percentile_25, percentile_75
 
 
+# ucitavamo C iz fajla C
 def load_data(filename):
     C = []
     with open(filename, newline='') as csvfile:
@@ -59,7 +58,7 @@ def load_data(filename):
                     c[header[i]] = row[i].strip()
                 C.append(c)
             cnt += 1
-    # DEBUG
+    # DEBUG primer ako treba:
     # print(json.dumps(C, indent=2))
     # exit(0)
     return C
@@ -82,7 +81,8 @@ def equal_vendors(c, nc):
     # e.g. 4.3-> 4, similarity: 3-5 
     # Patch: equal (by default) 
     # supplychaincnt: x<10, 10<x<20, 20<x     
-    # u zavisnoti od toga da li radimo psirt ili bugbonty, onaj drugi koristimo kao confounding takodje
+    # u zavisnoti od 'selected method' - da li radimo psirt ili bugbonty, onaj drugi koristimo kao confounding takodje:
+
 def similar(c, nc, selected_method):
     # print(f"C: {json.dumps(c, indent=2)}\n")
     # print(f"NC: {json.dumps(nc, indent=2)}\n")
@@ -103,16 +103,18 @@ def similar(c, nc, selected_method):
     # ??? treba nam slicnost prema broju: supplychaincnt: x<10, 10<x<20, 20<x
     if int(c["CF_SUP_CHAIN"]) > 1 != int(nc["CF_SUP_CHAIN"]) > 1:
         return False
-    #if round(int(c["CF_SUP_CHAIN_PROD"]) / 10) != round(int(nc["CF_SUP_CHAIN_PROD"]) / 10):
+    # Supply chain product (za sad nam ne treba):
+    # if round(int(c["CF_SUP_CHAIN_PROD"]) / 10) != round(int(nc["CF_SUP_CHAIN_PROD"]) / 10):
     #    return False
 
+    # odabir argumenta za startovanje programa utice na atribute i confounding: 
+    # ako se izabere psirt, onda bug bounty ide kao confounding; i obratno
     if selected_method == ComparisonMethod.PCERT:
         if c["GP_bugbounty"] != nc["GP_bugbounty"]:
             return False
     elif selected_method == ComparisonMethod.BUGBOUNTY:
         if c["GP_psirt"] != nc["GP_psirt"]:
             return False
-
 
     return True
 
@@ -164,7 +166,10 @@ def get_stats(C):
 
 
 
-
+# deinisemo argumente za startovanje koda, i u skladu sa time atribute koji ce da se koriste: 
+# -p je PSIRT, 
+# -b je Bug bounty, 
+# -o je other (mozda ubuduce)
 def parse_arguments():
     def validate_options(args):
         if not any(vars(args).values()):
@@ -172,7 +177,7 @@ def parse_arguments():
         return args
 
     parser = argparse.ArgumentParser(description="Compare entries using different methods.")
-    parser.add_argument("-p", "--pcert", action="store_true", help="Use pcert to compare entries.")
+    parser.add_argument("-p", "--pcert", action="store_true", help="Use PSIRT to compare entries.")
     parser.add_argument("-b", "--bugbounty", action="store_true", help="Use bugbounty to compare entries.")
     parser.add_argument("-o", "--other", action="store_true", help="Use other method to compare entries.")
     args = parser.parse_args()
@@ -180,12 +185,12 @@ def parse_arguments():
 
 
 
-
+# omogucavamo snimanje dictionary u json
 def save_dict_to_json(dictionary, filename):
     with open(filename, 'w') as json_file:
         json.dump(dictionary, json_file, indent=4)
 
-
+# omogucavamo snimanje dictionary u csv
 def save_dict_to_csv(list_of_dicts, filename):
     if not list_of_dicts:
         print("Error: List of dictionaries is empty.")
@@ -198,9 +203,11 @@ def save_dict_to_csv(list_of_dicts, filename):
             writer.writerow(row)
 
 
+# main program: sa ovim ispod mu kazemo 'ovo pokreni samo ako je direktno pozvano iz command prompta'
+# (ako se poziva iz drugog fajla nece raditi -> prebaci u funkciju ovo ispod ako bude neophodno)
 if __name__ == "__main__":
-# sta je ovo iznad?
 
+    # citanje argumenta pri startovanju
     args = parse_arguments()
     selected_method = None
 
@@ -215,6 +222,7 @@ if __name__ == "__main__":
         print("Using other method to compare entries.")
 
 
+    # ucitavanje C i NC iz CSVova
     C = load_data("C.csv")
     print(f"Total C: {len(C)}")
     if False:
@@ -230,53 +238,53 @@ if __name__ == "__main__":
 
     # radi statistiku C i NC
     st, S, SP = get_stats(C)
-    print(f"C stats: {json.dumps(st, indent=2)}\n")
+#    print(f"C stats: {json.dumps(st, indent=2)}\n")
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(S)
-    print(f"S stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
+#    print(f"S stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(SP)
-    print(f"SP stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
+#    print(f"SP stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
     st, S, SP = get_stats(NC)
-    print(f"\nNC stats: {json.dumps(st, indent=2)}\n")
+#    print(f"\nNC stats: {json.dumps(st, indent=2)}\n")
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(S)
-    print(f"S stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
+#    print(f"S stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(SP)
-    print(f"SP stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
+#    print(f"SP stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
 
-    # Sampling (proverava similarity cvi i i ncvi, i da nije isti vendor)
+
+
+    # Sampling (proverava similarity cvi i svakog svi, i da nije isti vendor)
     l = []
     NC_log = []
-    NC_pairs = []
-    #skup = []
+    NC_pairs = [] # skup parova cvi-svi
     for c in C:
         cnt = 0
-        NC_sample = []
+        NC_sample = []  # skup svih svi za jedan cvi
         for nc in NC:
             if similar(c, nc, selected_method) and not equal_vendors(c, nc):
-                cnt += 1
-                NC_sample.append(nc)
+                cnt += 1  # brojimo koliko je slicnih za svaki cvi 
+                NC_sample.append(nc)  # skladistimo sve svi pandane u skup NC_sample
 
-        if cnt > 100:
-            print(f"{c['cve_id']} {cnt}")
-            # !!!
-            # izaberi random 1 od njih (zovemo ga s - izabrani parnjak od tog c)
-            # upisi u fajl: taj c i izabrani parnjak s
-            # napravi skup S sa svim svi (append...)
         l.append(cnt)
-        if NC_sample:
-            random_element = random.choice(NC_sample)
+
+        # ako hocemo da stampamo pregled koliko koji cvi ima pandana:
+        # if cnt > 100:
+        #    print(f"{c['cve_id']} {cnt}")
+                
+        # izvlacimo svi parnjaka random iz podskupa svih pandana za svakog cvi
+        if NC_sample:   # Ako skup NC_sample svih svi pandana datoj cvi nije prazan
+            random_element = random.choice(NC_sample)  # biramo jedan svi random
             NC_pairs.append({
                 "cvi" : c,
-                "ncvi" : random_element
-            })
+                "svi" : random_element
+            })  # dodajemo sve CF i GP informacije o cvi i o svi u NC_pairs, da bi ih potom brojali)
             NC_log.append({
                 "cvi" : c["cve_id"],
-                "ncvi" : random_element["cve_id"]
-            })
+                "svi" : random_element["cve_id"]
+            })  # dodajemo samo CVEID od svi i o svi u NC_log za licnu upotrebu/kontrolu kroz cvs fajl
     minimum, maximum, median, average, percentile_25, percentile_75 = stats(l)
-    print(f"Similarity stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
+    #print(f"Similarity stats: minimum={minimum} maximum={maximum} median={median} average={average:.2f} percentile_25={percentile_25} percentile_75={percentile_75}\n")
 
 
-    # !!!
     # potrebna statistika:
      # attribute = GP_psirt ili GP_bugbounty (setovan pri pokretanju koda)
         # a = broj clanova C za koje je atribut=false {za attr=psirt: ...["GP_psirt"] != "1"; za attr=bugbounty: ...["GP_bugbounty"] != "1"}
@@ -293,6 +301,7 @@ if __name__ == "__main__":
         # RRR = 1 - EER/CER
         # Sensitivity = a/(a + c) 
         # Specificity = d/(b + d)
+    
     a = 0
     b = 0
     c = 0
@@ -306,28 +315,32 @@ if __name__ == "__main__":
         print("Error: Selected method is not valid.")
         exit(1)
 
-    for cs in NC_pairs:
+    # prebrojavamo a, b, c i d iz NC_pairs (koji sadrzi info i o cvi i o parnjaku svi)
+    for cs in NC_pairs:  #razdvajamo bazu NC_pairs na cvi i svi
         cvi = cs["cvi"]
-        sample = cs["ncvi"]
+        sample = cs["svi"]
 
-        if cvi[selected_key] != "1":
+        if cvi[selected_key] != "1":  # ako za dati cvi PSIRT/BB nije 1 (i.e. false) dizemo a za jedan (a je cvi sa false)
             a += 1
-        if sample[selected_key] != "1":
+        if sample[selected_key] != "1":   # ako za dati svi PSIRT/BB nije 1 (i.e. false) dizemo b za jedan (a je cvi sa false)
             b += 1
-    c = len(NC_pairs) - a
-    d = len(NC_pairs) - b
+    c = len(NC_pairs) - a  # c je total broj u C minus a
+    d = len(NC_pairs) - b  # d je total broj u Sample minus b
     CER = a/(a+b)
     EER = c/(c+d)
     ARR = CER - EER
     RR = EER/CER
     RRR = 1 - EER/CER
-    Sensitivity = a/(a + c)
-    Specificity = d/(b + d)
+    Sensitivity = a/(a + c)  # ovo se nece menjati kroz random jer C ostaje isti
+    Specificity = d/(b + d)  # ovo ce se menjati u zavinosti od random
+
+    # stampamo rezultate
     print(f"a: {a} b: {b} c: {c} d: {d}")
     print(f"Association 1: {c/(a+c) < d/(b+d)}")
     print(f"Association 2: {a/(a+c) > b/(b+d)}")
     print(f"CER: {CER} EER: {EER} ARR: {ARR} RR: {RR} RRR: {RRR} Sensitivity: {Sensitivity} Specificity: {Specificity}")
 
+    # snimamo rezultate u falove: NC_pairs (sve cvi i svi podatke) u json, a samo CVEID od cvi i svi u .cvs, za interni pregled
     save_dict_to_json(NC_pairs, 'NC_pairs.json')
     save_dict_to_csv(NC_log, 'NC_log.csv')
 
