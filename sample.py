@@ -1,3 +1,4 @@
+# importing module, which are used later:
 import csv
 import json
 import argparse
@@ -67,6 +68,7 @@ def load_data(filename):
 
 # checking if vendors are same in cvi and svi: if (c[vendor]<>nc[vendor]) return, jer ne smeju biti isti vendori za sample i case
 def equal_vendors(c, nc):
+# !! proveri da li je CISAVendorNAME isto sto i VendorNAME u CISA
     if c["CISAVendorNAME"].strip().lower() == nc["VendorNAME"].strip().lower():
         return True
     else:
@@ -192,6 +194,9 @@ def save_dict_to_json(dictionary, filename):
 
 # omogucavamo snimanje dictionary u csv
 def save_dict_to_csv(list_of_dicts, filename):
+    if not isinstance(list_of_dicts, list) or not all(isinstance(d, dict) for d in list_of_dicts):
+        print("Error: Input is not a list of dictionaries.")
+        return
     if not list_of_dicts:
         print("Error: List of dictionaries is empty.")
         return
@@ -201,6 +206,30 @@ def save_dict_to_csv(list_of_dicts, filename):
         writer.writeheader()
         for row in list_of_dicts:
             writer.writerow(row)
+
+# prolazimo kroz C, i za svakog posebnog vendora random biramo samo jednog predstavnika, tako pravimo skup C'; takodje i brojimo koliko ima pojedinacnih vendora
+def create_cprim(c):
+    cprim = []
+    total_distinct_names = 0
+
+    name_groups = {}
+
+    # Iterate through the dictionary to collect unique CISAVendorNAME and their corresponding entries
+    for entry in c:
+        name = entry['CISAVendorNAME'] # extracts the value of "CISAVendorNAME"" attribute from the current entry and assigns it to the variable name
+        if name not in name_groups:
+            name_groups[name] = [entry]
+            total_distinct_names += 1
+        else:
+            name_groups[name].append(entry)
+    
+    # Randomly select one entry for each distinct name group
+    for name, entries in name_groups.items():
+        selected_entry = random.choice(entries)
+        cprim.append(selected_entry)
+    
+    return cprim, total_distinct_names
+
 
 
 # main program: sa ovim ispod mu kazemo 'ovo pokreni samo ako je direktno pozvano iz command prompta'
@@ -235,6 +264,13 @@ if __name__ == "__main__":
         print(json.dumps(NC, indent=2))
         exit(0)
 
+    Cvend, total_distinct_names = create_cprim(C)
+    #print(Cvend)
+    print("Total distinct Name values:", total_distinct_names)
+    # iterate through the keys of the Cvend dictionary (which contain the "CISAVendorName" values) and prints each one separately:
+    # print("Name values of Cvend:")
+    # for name in Cvend.keys():
+    #    print(name)
 
     # radi statistiku C i NC
     st, S, SP = get_stats(C)
@@ -256,7 +292,7 @@ if __name__ == "__main__":
     l = []
     NC_log = []
     NC_pairs = [] # skup parova cvi-svi
-    for c in C:
+    for c in Cvend:
         cnt = 0
         NC_sample = []  # skup svih svi za jedan cvi
         for nc in NC:
@@ -287,20 +323,22 @@ if __name__ == "__main__":
 
     # potrebna statistika:
      # attribute = GP_psirt ili GP_bugbounty (setovan pri pokretanju koda)
-        # a = broj clanova C za koje je atribut=false {za attr=psirt: ...["GP_psirt"] != "1"; za attr=bugbounty: ...["GP_bugbounty"] != "1"}
-        # b = broj clanova S za koje je atribut=false
-        # c = broj clanova C za koje je atribut=true {za attr=psirt: ...["GP_psirt"] == "1"; za attr=bugbounty: ...["GP_bugbounty"] == "1"}
-        # d = broj clanova S za koje je atribut=true
+        # a = broj clanova C koji su exposed to good practice - za koje je atribut=true {za attr=psirt: ...["GP_psirt"] == "1"; za attr=bugbounty: ...["GP_bugbounty"] == "1"}
+        # b = broj clanova S koji su exposed to good practice - za koje je atribut=true
+        # c = broj clanova C koji nisu exposed to good practice - za koje je atribut=false {za attr=psirt: ...["GP_psirt"] != "1"; za attr=bugbounty: ...["GP_bugbounty"] != "1"}
+        # d = broj clanova S koji nisu exposed to good practice - za koje je atribut=false
+
     # Racunamo:
         # Association 1: if c/a+c < d/b+d
         # Association 2: if a/a+c > b/b+d
-        # CER = a/a+b
-        # EER = c/c+d
-        # ARR = CER - ERR = a/a+b  –  c/c+d
-        # RR = EER/CER = c*(a+b) / a*(c+d)
+        # CER = c/c+d
+        # EER = a/a+b
+        # ARR = CER - EER = c/c+d - a/a+b
+        # RR = EER/CER = a*(c+d) / c*(a+b) 
         # RRR = 1 - EER/CER
-        # Sensitivity = a/(a + c) 
-        # Specificity = d/(b + d)
+        # OR = a/b / c/d
+        # Sensitivity = c/(a + c) 
+        # Specificity = b/(b + d)
     
     a = 0
     b = 0
@@ -320,29 +358,33 @@ if __name__ == "__main__":
         cvi = cs["cvi"]
         sample = cs["svi"]
 
-        if cvi[selected_key] != "1":  # ako za dati cvi PSIRT/BB nije 1 (i.e. false) dizemo a za jedan (a je cvi sa false)
-            a += 1
-        if sample[selected_key] != "1":   # ako za dati svi PSIRT/BB nije 1 (i.e. false) dizemo b za jedan (a je cvi sa false)
-            b += 1
-    c = len(NC_pairs) - a  # c je total broj u C minus a
-    d = len(NC_pairs) - b  # d je total broj u Sample minus b
-    CER = a/(a+b)
-    EER = c/(c+d)
+        if cvi[selected_key] != "1":  # ako za dati cvi PSIRT/BB nije 1 (i.e. false) dizemo c za jedan (c je cvi sa false)
+            c += 1
+        if sample[selected_key] != "1":   # ako za dati svi PSIRT/BB nije 1 (i.e. false) dizemo d za jedan (d je cvi sa false)
+            d += 1
+    a = len(NC_pairs) - c  # a je total broj u C minus c
+    b = len(NC_pairs) - d  # b je total broj u Sample minus d
+    OR = (a*d)/(c*b)
+    CER = c/(c+d)
+    EER = a/(a+b)
     ARR = CER - EER
     RR = EER/CER
     RRR = 1 - EER/CER
-    Sensitivity = a/(a + c)  # ovo se nece menjati kroz random jer C ostaje isti
-    Specificity = d/(b + d)  # ovo ce se menjati u zavinosti od random
+    Sensitivity = c/(a + c)  # ovo se nece menjati kroz random jer C ostaje isti
+    Specificity = b/(b + d)  # ovo ce se menjati u zavinosti od random
 
     # stampamo rezultate
     print(f"a: {a} b: {b} c: {c} d: {d}")
     print(f"Association 1: {c/(a+c) < d/(b+d)}")
     print(f"Association 2: {a/(a+c) > b/(b+d)}")
-    print(f"CER: {CER} EER: {EER} ARR: {ARR} RR: {RR} RRR: {RRR} Sensitivity: {Sensitivity} Specificity: {Specificity}")
+    print(f"OR: {OR} CER: {CER} EER: {EER} ARR: {ARR} RR: {RR} RRR: {RRR} Sensitivity: {Sensitivity} Specificity: {Specificity}")
 
     # snimamo rezultate u falove: NC_pairs (sve cvi i svi podatke) u json, a samo CVEID od cvi i svi u .cvs, za interni pregled
     save_dict_to_json(NC_pairs, 'NC_pairs.json')
     save_dict_to_csv(NC_log, 'NC_log.csv')
+    save_dict_to_json(Cvend, 'Cvend.json')
+    save_dict_to_csv(Cvend, 'Cvend.csv')
+
 
 
 
