@@ -367,6 +367,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
                         # NB za Assigner ne mora da se proverava da li je important jer jeste po difoltu ako je u Vendors 
                         # ("\" se samo dodaje ako hoces u novi red da prelomis kod)
                         if v_cpe and v_assign and \
+                                v_cpe["IMPORTANT"] == "1" and \
                                 v_cpe["NAME"].strip().lower() == v_assign["NAME"].strip().lower():
                             vendor = v_cpe
                             new_ref["VendorCPE"] = v_cpe["CPE"]
@@ -391,6 +392,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
 
                                 # za svaki CPE u Vendors, i reference source u vendors, i gde se NAME od ta dva poklapa
                                 if v_cpe and v_ref and \
+                                        v_cpe["IMPORTANT"] == "1" and \
                                         v_cpe["NAME"].strip().lower() == v_ref["NAME"].strip().lower():
                                     vendor = v_cpe
                                     new_ref["VendorCPE"] = v_cpe["CPE"]
