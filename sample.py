@@ -4,6 +4,8 @@ import json
 import argparse
 from enum import Enum
 import random
+import numpy as np
+from sklearn.linear_model import LogisticRegression
 
 # definisemo argumente koji ce se koristiti pri aktiviranju koda (-p: attr=psirt, -b: attr=bugbounty, other-drugo ako bude trebalo)
 class ComparisonMethod(Enum):
@@ -370,8 +372,8 @@ if __name__ == "__main__":
     ARR = CER - EER
     RR = EER/CER
     RRR = 1 - EER/CER
-    Sensitivity = c/(a + c)  # ovo se nece menjati kroz random jer C ostaje isti
-    Specificity = b/(b + d)  # ovo ce se menjati u zavinosti od random
+    Sensitivity = a/(a + c)  # ovo se nece menjati kroz random jer C ostaje isti
+    Specificity = d/(b + d)  # ovo ce se menjati u zavinosti od random
 
     # stampamo rezultate
     print(f"a: {a} b: {b} c: {c} d: {d}")
@@ -385,6 +387,23 @@ if __name__ == "__main__":
     save_dict_to_json(Cvend, 'Cvend.json')
     save_dict_to_csv(Cvend, 'Cvend.csv')
 
+    # Create arrays for exposure and outcomes
+    # array of 1 for exposed and 0 for unexposed:
+    exposure = np.concatenate([np.ones(a + b), np.zeros(c + d)]).reshape(-1, 1)
+    # array of 1 for outcome and 0 for no outcome:
+    outcomes = np.concatenate([np.ones(a + c), np.zeros(b + d)])
 
+    # Ensure lengths match
+    if len(exposure) != len(outcomes):
+        print("Effect size error: Lengths of exposure and outcomes arrays do not match.")
+    else:
+        # Perform logistic regression
+        model = LogisticRegression()
+        model.fit(exposure, outcomes)
+
+        # Calculate effect size (odds ratio)
+        effect_size = np.exp(model.coef_[0][0])
+
+        print("Estimated effect size:", effect_size)
 
 
