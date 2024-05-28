@@ -13,7 +13,7 @@ class ComparisonMethod(Enum):
     BUGBOUNTY = "bugbounty"
     OTHER = "other"
 
-
+# for median and confidence interval:
 def stats(integer_list):
     # Calculate and display the minimum, maximum, median, and average
     minimum = min(integer_list)
@@ -70,7 +70,7 @@ def load_data(filename):
 
 # checking if vendors are same in cvi and svi: if (c[vendor]<>nc[vendor]) return, jer ne smeju biti isti vendori za sample i case
 def equal_vendors(c, nc):
-# !! proveri da li je CISAVendorNAME isto sto i VendorNAME u CISA
+# !! proveri da li je CISAVendorNAME od C isto sto i VendorNAME NC parnjaka
     if c["CISAVendorNAME"].strip().lower() == nc["VendorNAME"].strip().lower():
         return True
     else:
@@ -84,7 +84,7 @@ def equal_vendors(c, nc):
     # CVSS: "baseScore 3" scope: round() +-1 
     # e.g. 4.3-> 4, similarity: 3-5 
     # Patch: equal (by default) 
-    # supplychaincnt: x<10, 10<x<20, 20<x     
+    # supplychaincnt: x<10, 10<x<20, 20<x  - ne za sada   
     # u zavisnoti od 'selected method' - da li radimo psirt ili bugbonty, onaj drugi koristimo kao confounding takodje:
 
 def similar(c, nc, selected_method):
@@ -104,9 +104,11 @@ def similar(c, nc, selected_method):
     # razlika CVSS treba da nije veca od 1
     if abs(float(c["CF_CVSS"]) - float(nc["CF_CVSS"])) > 1:
         return False
-    # ??? treba nam slicnost prema broju: supplychaincnt: x<10, 10<x<20, 20<x
-    if int(c["CF_SUP_CHAIN"]) > 1 != int(nc["CF_SUP_CHAIN"]) > 1:
-        return False
+    
+    # treba nam slicnost prema broju: supplychaincnt: x<10, 10<x<20, 20<x (za sada ne treba)
+    # if int(c["CF_SUP_CHAIN"]) > 1 != int(nc["CF_SUP_CHAIN"]) > 1:
+    #    return False
+
     # Supply chain product (za sad nam ne treba):
     # if round(int(c["CF_SUP_CHAIN_PROD"]) / 10) != round(int(nc["CF_SUP_CHAIN_PROD"]) / 10):
     #    return False
