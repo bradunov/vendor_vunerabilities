@@ -519,7 +519,7 @@ if __name__ == "__main__":
                         file_exploits[cve] = row
                 
             cnt += 1
-    print(f"Total exploits: {len(file_exploits)}")
+    print(f"Total EDB POC exploits: {len(file_exploits)}")
     #print(json.dumps(file_exploits, indent=2))
 
 

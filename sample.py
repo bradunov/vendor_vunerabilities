@@ -68,7 +68,8 @@ def load_data(filename):
 
 
 
-# checking if vendors are same in cvi and svi: if (c[vendor]<>nc[vendor]) return, jer ne smeju biti isti vendori za sample i case
+# checking if vendors are same in cvi and svi: if (c[vendor]<>nc[vendor]) return, 
+# jer ne smeju biti isti vendori za sample i case
 def equal_vendors(c, nc):
 # !! proveri da li je CISAVendorNAME od C isto sto i VendorNAME NC parnjaka
     if c["CISAVendorNAME"].strip().lower() == nc["VendorNAME"].strip().lower():
@@ -211,7 +212,8 @@ def save_dict_to_csv(list_of_dicts, filename):
         for row in list_of_dicts:
             writer.writerow(row)
 
-# prolazimo kroz C, i za svakog posebnog vendora random biramo samo jednog predstavnika, tako pravimo skup C'; takodje i brojimo koliko ima pojedinacnih vendora
+# prolazimo kroz C, i za svakog posebnog vendora random biramo samo jednog predstavnika, tako pravimo skup C'; 
+# takodje i brojimo koliko ima pojedinacnih vendora
 def create_cprim(c):
     cprim = []
     total_distinct_names = 0
@@ -268,10 +270,13 @@ if __name__ == "__main__":
         print(json.dumps(NC, indent=2))
         exit(0)
 
+    # pravimo C' i stavljamo ga u Cvend
     Cvend, total_distinct_names = create_cprim(C)
     #print(Cvend)
     print("Total distinct Name values:", total_distinct_names)
-    # iterate through the keys of the Cvend dictionary (which contain the "CISAVendorName" values) and prints each one separately:
+
+    # iterate through the keys of the Cvend dictionary (which contain the "CISAVendorName" values) 
+    # and prints each one separately:
     # print("Name values of Cvend:")
     # for name in Cvend.keys():
     #    print(name)
@@ -307,7 +312,9 @@ if __name__ == "__main__":
         l.append(cnt)
 
         # ako hocemo da stampamo pregled koliko koji cvi ima pandana:
-        # if cnt > 100:
+        if cnt == 0:
+            print(f"CVE without a pair: {c['cve_id']}")
+        #if cnt <10 and cnt>1:
         #    print(f"{c['cve_id']} {cnt}")
                 
         # izvlacimo svi parnjaka random iz podskupa svih pandana za svakog cvi
@@ -353,6 +360,7 @@ if __name__ == "__main__":
         selected_key = "GP_psirt"
     elif selected_method == ComparisonMethod.BUGBOUNTY:
         selected_key = "GP_bugbounty"
+
     else:
         print("Error: Selected method is not valid.")
         exit(1)
@@ -385,27 +393,28 @@ if __name__ == "__main__":
 
     # snimamo rezultate u falove: NC_pairs (sve cvi i svi podatke) u json, a samo CVEID od cvi i svi u .cvs, za interni pregled
     save_dict_to_json(NC_pairs, 'NC_pairs.json')
+    save_dict_to_csv(NC_pairs, 'NC_pairs.csv')
     save_dict_to_csv(NC_log, 'NC_log.csv')
     save_dict_to_json(Cvend, 'Cvend.json')
     save_dict_to_csv(Cvend, 'Cvend.csv')
 
     # Create arrays for exposure and outcomes
     # array of 1 for exposed and 0 for unexposed:
-    exposure = np.concatenate([np.ones(a + b), np.zeros(c + d)]).reshape(-1, 1)
-    # array of 1 for outcome and 0 for no outcome:
-    outcomes = np.concatenate([np.ones(a + c), np.zeros(b + d)])
+    #exposure = np.concatenate([np.ones(a + b), np.zeros(c + d)]).reshape(-1, 1)
+    ## array of 1 for outcome and 0 for no outcome:
+    #outcomes = np.concatenate([np.ones(a + c), np.zeros(b + d)])
 
     # Ensure lengths match
-    if len(exposure) != len(outcomes):
-        print("Effect size error: Lengths of exposure and outcomes arrays do not match.")
-    else:
-        # Perform logistic regression
-        model = LogisticRegression()
-        model.fit(exposure, outcomes)
-
-        # Calculate effect size (odds ratio)
-        effect_size = np.exp(model.coef_[0][0])
-
-        print("Estimated effect size:", effect_size)
+    #if len(exposure) != len(outcomes):
+        #print("Effect size error: Lengths of exposure and outcomes arrays do not match.")
+    #else:
+        ## Perform logistic regression
+        #model = LogisticRegression()
+        #model.fit(exposure, outcomes)
+#
+        ## Calculate effect size (odds ratio)
+        #effect_size = np.exp(model.coef_[0][0])
+#
+        #print("Estimated effect size:", effect_size)
 
 
