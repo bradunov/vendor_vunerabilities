@@ -201,15 +201,17 @@ def similar(c, nc, selected_method):
     # print(f"CF_SUP_CHAIN: {c['CF_SUP_CHAIN']} {nc['CF_SUP_CHAIN']}")
     # print(f"CF_CVSS: {c['CF_CVSS']} {nc['CF_CVSS']}")
 
-    if c["CF_isOSS"] != nc["CF_isOSS"]:
+    if c["CF_isOSS"] != nc["CF_isOSS"]:                 # ako OS nije isti - izbaci
         return False
-    if c["CF_POC"] != nc["CF_POC"]:
+    if c["CF_POC"] != nc["CF_POC"]:                     # ako POC nije isti - izbaci
         return False
-    if c["CF_Industry"] != nc["CF_Industry"]:
+    if c["CF_Industry"] != nc["CF_Industry"]:           # ako Industry nije isti - izbaci
         return False
-    # razlika CVSS treba da nije veca od 1
-    if abs(float(c["CF_CVSS"]) - float(nc["CF_CVSS"])) > 1:
+    if c["CF_CVSSSev"] != nc["CF_CVSSSev"]:             # ako CVSS Severity nije isti - izbaci
         return False
+    # alternativno za CVSS: razlika CVSS treba da nije veca od 1
+    # if abs(float(c["CF_CVSS"]) - float(nc["CF_CVSS"])) > 1:
+    #    return False
     
     # treba nam slicnost prema broju: supplychaincnt: x<10, 10<x<20, 20<x (za sada ne treba)
     # if int(c["CF_SUP_CHAIN"]) > 1 != int(nc["CF_SUP_CHAIN"]) > 1:
@@ -256,7 +258,7 @@ def create_cprim(name_groups):
     return cprim
 
 
-# za svaki clan Cvend biramo random jednog predstavnika iz NC - stvaramo parove cvi-svi
+# za svaki clan C' biramo random jednog predstavnika iz NC - stvaramo parove cvi-svi
 def sampling(Cvend, NC, selected_method):
     l = []
     NC_log = []
@@ -274,10 +276,10 @@ def sampling(Cvend, NC, selected_method):
 
             # provera:
             #  ako hocemo da stampamo pregled koliko koji cvi ima pandana:
-            # if cnt == 0:
-            #    print(f"CVE without a pair: {c['cve_id']}")
-            # if cnt <10 and cnt>1:
-            #    print(f"{c['cve_id']} {cnt}")
+        #if cnt == 0:
+        #    print(f"CVE without a pair: {c['cve_id']}")
+        #if cnt <10:  # and cnt>1
+        #    print(f"{c['cve_id']} {cnt} (<10)")
                     
         # potom za svaki cvi' izvlacimo jednog svi parnjaka random iz podskupa svih pandana
         if NC_sample:   # Ako skup NC_sample svih svi pandana datoj cvi nije prazan
@@ -290,7 +292,7 @@ def sampling(Cvend, NC, selected_method):
                 "cvi" : c["cve_id"],
                 "svi" : random_element["cve_id"]
             })  # dodajemo samo CVEID od cvi i od svi u NC_log za licnu upotrebu/kontrolu kroz cvs fajl (CVE-ID parova)
-    return NC_pairs, NC_log
+    return NC_pairs, NC_log, NC_sample, l
 
 
 # brojanje a, b, c, d
@@ -434,7 +436,7 @@ if __name__ == "__main__":
 
         # 2)
         # Sampling:
-        NC_pairs, NC_log = sampling(Cvend, NC, selected_method)
+        NC_pairs, NC_log, NC_sample, Cprim_log = sampling(Cvend, NC, selected_method)
 
         # 3)
         # statistika:
@@ -550,9 +552,11 @@ if __name__ == "__main__":
     # snimamo rezultate u falove: NC_pairs (sve cvi i svi podatke) u json, a samo CVEID od cvi i svi u .cvs, za interni pregled
     save_dict_to_json(NC_pairs, 'NC_pairs.json')
     save_dict_to_csv(NC_pairs, 'NC_pairs.csv')
-    save_dict_to_csv(NC_log, 'NC_log.csv')
-    save_dict_to_json(Cvend, 'Cvend.json')
-    save_dict_to_csv(Cvend, 'Cvend.csv')
+    save_dict_to_json(Cprim_log, 'Cprim_log.json')  # lista broja parnjaka po svakom cvi'
+    save_dict_to_csv(NC_log, 'NC_log.csv')          # parnjaci
+    save_dict_to_csv(NC_sample, 'NC_sample.csv')    # svi moguci svi od poslednjeg cvi obradjenog (ako hocemo od svih, moramo da ubacimo ovo u funkciju gore)
+    save_dict_to_json(Cvend, 'Cvend.json')          # odabrani predstavnici vendora u C' (json)
+    save_dict_to_csv(Cvend, 'Cvend.csv')            # odabrani predstavnici vendora u C' (csv)
 
 
     # stampamo rezultate

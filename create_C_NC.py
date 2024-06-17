@@ -150,6 +150,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
                     new_ref["CF_isOSS"] = v["isOpenSource"].strip().lower() == "1"
 
                     new_ref["CF_CVSS"] = new_ref["v3BaseScore"]
+                    new_ref["CF_CVSSSev"] = new_ref["v3BaseSeverity"]
                     new_ref["CF_POC"] = False
 
                     # poc.nvd(vi) = 1 if CVE	.json file -> references:reference_data:tag==’exploit’ (not CISA), else =0 
@@ -427,6 +428,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
                 new_ref["CF_isOSS"] = vendor["isOpenSource"].strip().lower() == "1"
 
                 new_ref["CF_CVSS"] = new_ref["v3BaseScore"]
+                new_ref["CF_CVSSSev"] = new_ref["v3BaseSeverity"]
                 new_ref["CF_POC"] = False
 
                 # poc.nvd(vi) = 1 if CVE	.json file -> references:reference_data:tag==’exploit’ (not CISA), else =0 
