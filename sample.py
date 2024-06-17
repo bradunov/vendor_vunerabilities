@@ -6,7 +6,7 @@ from enum import Enum
 import random
 import pandas as pd
 import numpy as np
-from scipy.stats import chi2_contingency
+from scipy.stats import chi2_contingency, chi2
 import os
 from sklearn.linear_model import LogisticRegression
 
@@ -337,9 +337,14 @@ def calculate_SensSpec(a, b, c, d):
 #Chi2 test and p value
 def chi_square(a, b, c, d):
     contingency_table = np.array([[a, c], [b, d]])              # Create contingency table
-    chi2, p_value, _, _ = chi2_contingency(contingency_table)   # Perform Chi-Square test of independence (one-tailed)
+    chi_2, p_value, _, _ = chi2_contingency(contingency_table)   # Perform Chi-Square test of independence (one-tailed)
     p_value_1t = p_value / 2                                    # Since the chi2_contingency function provides a two-tailed p-value, we divide by 2 for a one-tailed test
-    return chi2, p_value_1t
+    # Calculate effect size (Cramér's V):
+    n = np.sum(contingency_table)
+    phi2 = chi_2 / n
+    r, k = contingency_table.shape
+    effect_size = np.sqrt(phi2 / min(k-1, r-1))
+    return chi_2, p_value_1t, effect_size
 
 
 # main program: sa ovim ispod mu kazemo 'ovo pokreni samo ako je direktno pozvano iz command prompta'
@@ -396,6 +401,7 @@ if __name__ == "__main__":
     bootstrap_values_Sens = []
     bootstrap_values_chi2 = []
     bootstrap_values_p = []
+    bootstrap_values_effect = []
 
     median_OR = 0
     median_RR = 0
@@ -405,6 +411,7 @@ if __name__ == "__main__":
     median_Sens = 0
     median_chi2 = 0
     median_p = 0
+    median_effect = 0
 
     # Number of bootstrap iterations
     num_iterations = args.iterations
@@ -441,7 +448,7 @@ if __name__ == "__main__":
         Sensitivity, Specificity = calculate_SensSpec(a, b, c, d)
 
         #racunamo chi2 i p
-        chi2, p_value_1t = chi_square(a, b, c, d)
+        chi_2, p_value_1t, effect_size = chi_square(a, b, c, d)
 
         # Store the result u nizove
         bootstrap_values_OR.append(OR)
@@ -450,8 +457,9 @@ if __name__ == "__main__":
         bootstrap_values_ARR.append(ARR)
         bootstrap_values_Spec.append(Specificity)
         bootstrap_values_Sens.append(Sensitivity)
-        bootstrap_values_chi2.append(chi2)
+        bootstrap_values_chi2.append(chi_2)
         bootstrap_values_p.append(p_value_1t)
+        bootstrap_values_effect.append(effect_size)
 
     # !!! end of bootstrap loop
 
@@ -465,6 +473,7 @@ if __name__ == "__main__":
     median_Sens = np.median(bootstrap_values_Sens)
     median_chi2 = np.median(bootstrap_values_chi2)
     median_p = np.median(bootstrap_values_p)
+    median_effect = np.median(bootstrap_values_effect)
 
     # bootstrap 95% confidence intervals (CI) for chi2 statistics - to provide a range of likely values for the chi-square statistic
     lower_bound_chi2 = np.percentile(bootstrap_values_chi2, 2.5)
@@ -473,6 +482,17 @@ if __name__ == "__main__":
     # bootstrap 95% confidence intervals (CI) for p-value 
     lower_bound_p = np.percentile(bootstrap_values_p, 2.5)
     upper_bound_p = np.percentile(bootstrap_values_p, 97.5)
+
+    # bootstrap 95% confidence intervals (CI) for effect sizes
+    lower_bound_effect = np.percentile(bootstrap_values_effect, 2.5)
+    upper_bound_effect = np.percentile(bootstrap_values_effect, 97.5)
+
+    # Calculate the standard deviation of the chi-square statistics
+    sd_chi2 = np.std(bootstrap_values_chi2)
+
+    # Calculate statistical power 
+    critical_value = chi2.ppf(0.95, df=1)
+    power = np.mean([chi_2 > critical_value for chi_2 in bootstrap_values_chi2])
 
 
     # Save the median values to a CSV file (appending if the file exists)
@@ -490,7 +510,12 @@ if __name__ == "__main__":
         'CI (chi2) - upper': [upper_bound_chi2],
         'p-value (1-tail)' : [median_p],
         'CI (p) - lower' : [lower_bound_p],
-        'CI (p) - upper': [upper_bound_p]
+        'CI (p) - upper': [upper_bound_p], 
+        'Effect size': [median_effect],
+        'CI (Effect) - lower' : [lower_bound_effect],
+        'CI (Effect) - upper' : [upper_bound_effect],
+        'Standard deviation' : [sd_chi2],
+        'Statistical power' : [power]
     })
 
     # Define the filename
@@ -514,7 +539,8 @@ if __name__ == "__main__":
         'Specificity': bootstrap_values_Spec,
         'Sensitivity': bootstrap_values_Sens, 
         'Chi2' : bootstrap_values_chi2,
-        'p-value (1-tail)' : bootstrap_values_p 
+        'p-value (1-tail)' : bootstrap_values_p,
+        'Effect' : bootstrap_values_effect
     })
     bootstrap_values_df.to_csv('bootstrap_values.csv', index=False)
 
