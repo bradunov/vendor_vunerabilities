@@ -139,6 +139,8 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
                 new_ref["CISAVendorNAME"] = v["NAME"]
                 new_ref["CISAVendorImportant"] = v["IMPORTANT"]
 
+                # snimamo sve Vendor names iz CISA u jednoj listi da bi posle NC mogli da procistimo od njih ako hocemo
+                #vendor_names.append(new_ref["CISAVendorNAME"])
 
                 if new_ref["CISAVendorImportant"] == "1":
 
@@ -459,7 +461,7 @@ def extract_all(d, C, NC, DEBUG, cisa, vendors, file_exploits, use_cpe=False):
                 new_ref["GP_contact"] = vendor["Contact"]
                 new_ref["GP_bugbounty"] = vendor["BugBounty2"]
 
-
+                new_ref["VendorinCisa"] = vendor["in CISA KEV"]
 
                 NC.append(new_ref)
                 Ncnt += 1
@@ -497,6 +499,8 @@ def export_csv(d, filename):
 
 
 if __name__ == "__main__":
+
+    #vendor_names = []
 
     argparser = argparse.ArgumentParser(description='Process CVEs')
     argparser.add_argument('-c', '--use_cpe', action='store_true', help='Use only CPE')
@@ -621,6 +625,8 @@ if __name__ == "__main__":
     export_csv(DEBUG["Debug_cpe_not_important"], "Debug_cpe_not_important.csv")
     export_csv(DEBUG["Debug_cpe_notin_vendors"], "Debug_cpe_notin_vendors.csv")
     export_csv(DEBUG["Debug_notin_assigners"], "Debug_notin_assigners.csv")
+    #print(vendor_names)
+
 
 
 
