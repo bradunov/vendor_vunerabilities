@@ -176,11 +176,18 @@ def load_data(filename):
 # jer ne smeju biti isti vendori za sample i case
 def equal_vendors(c, nc):
 # !! proveri da li je CISAVendorNAME od C isto sto i VendorNAME NC parnjaka
-    if c["CISAVendorNAME"].strip().lower() == nc["VendorNAME"].strip().lower():
+    if nc["VendorNAME"].strip().lower() == c["CISAVendorNAME"].strip().lower():
         return True
     else:
         return False
 
+# opcija b) - ako Vendor od svi u NC spada pod bilo kog vendora u CISA odnosno CVend:
+#def NC_vendor_in_C_one(Cvend, nc):
+#    for value in Cvend:
+#            if nc["VendorNAME"].strip().lower() == value["CISAVendorNAME"].strip().lower():
+#                return True
+#    return False
+# radi ubrzavanja, ovo bi moglo u create_C_NC.py da se prebaci (sa delom izvlacenja liste vendora u CISA)
 
 
 # Similarity function
@@ -214,7 +221,7 @@ def similar(c, nc, selected_method):
     #    return False
     
     # treba nam slicnost prema broju: supplychaincnt: x<10, 10<x<20, 20<x (za sada ne treba)
-    # if int(c["CF_SUP_CHAIN"]) > 1 != int(nc["CF_SUP_CHAIN"]) > 1:
+    #if int(c["CF_SUP_CHAIN"]) > 1 != int(nc["CF_SUP_CHAIN"]) > 1:
     #    return False
 
     # Supply chain product (za sad nam ne treba):
@@ -267,9 +274,9 @@ def sampling(Cvend, NC, selected_method):
         cnt = 0
         NC_sample = []  # skup svih svi za jedan cvi
             
-        # prvo pravimo svi listu mogucih parnjaka za svaki cvi': proverava similarity cvi' i svakog svi, i da nije isti vendor:
+        # prvo pravimo svi listu mogucih parnjaka za svaki cvi': proverava similarity cvi' i svakog svi, i da vendor nije medj CISA vendorima ((odnosno #da nije isti vendor):
         for nc in NC:
-            if similar(c, nc, selected_method) and not equal_vendors(c, nc):
+            if similar(c, nc, selected_method) and nc['VendorinCisa'] != "1":                         # not equal_vendors(c, nc): 
                 cnt += 1  # brojimo koliko je slicnih za svaki cvi 
                 NC_sample.append(nc)  # skladistimo sve svi pandane u skup NC_sample
         l.append(cnt)
@@ -336,17 +343,17 @@ def calculate_SensSpec(a, b, c, d):
     return Sensitivity, Specificity
 
 
-#Chi2 test and p value
+#Chi2 test and p value, effect size
 def chi_square(a, b, c, d):
     contingency_table = np.array([[a, c], [b, d]])              # Create contingency table
     chi_2, p_value, _, _ = chi2_contingency(contingency_table)   # Perform Chi-Square test of independence (one-tailed)
     p_value_1t = p_value / 2                                    # Since the chi2_contingency function provides a two-tailed p-value, we divide by 2 for a one-tailed test
     # Calculate effect size (Cramér's V):
-    n = np.sum(contingency_table)
-    phi2 = chi_2 / n
-    r, k = contingency_table.shape
-    effect_size = np.sqrt(phi2 / min(k-1, r-1))
-    return chi_2, p_value_1t, effect_size
+    #n = np.sum(contingency_table)
+    #phi2 = chi_2 / n
+    #r, k = contingency_table.shape
+    #effect_size = np.sqrt(phi2 / min(k-1, r-1))
+    return chi_2, p_value_1t
 
 
 # main program: sa ovim ispod mu kazemo 'ovo pokreni samo ako je direktno pozvano iz command prompta'
@@ -395,6 +402,10 @@ if __name__ == "__main__":
     # print("Total distinct Name values:", total_distinct_names)
 
     # !!! Bootstrap
+    bootstrap_values_a = []
+    bootstrap_values_b =[]
+    bootstrap_values_c =[]
+    bootstrap_values_d =[]
     bootstrap_values_OR = []
     bootstrap_values_RR = []
     bootstrap_values_RRR = []
@@ -450,9 +461,13 @@ if __name__ == "__main__":
         Sensitivity, Specificity = calculate_SensSpec(a, b, c, d)
 
         #racunamo chi2 i p
-        chi_2, p_value_1t, effect_size = chi_square(a, b, c, d)
+        chi_2, p_value_1t = chi_square(a, b, c, d)
 
         # Store the result u nizove
+        bootstrap_values_a.append(a)
+        bootstrap_values_b.append(b)
+        bootstrap_values_c.append(c)
+        bootstrap_values_d.append(d)
         bootstrap_values_OR.append(OR)
         bootstrap_values_RR.append(RR)
         bootstrap_values_RRR.append(RRR)
@@ -461,7 +476,11 @@ if __name__ == "__main__":
         bootstrap_values_Sens.append(Sensitivity)
         bootstrap_values_chi2.append(chi_2)
         bootstrap_values_p.append(p_value_1t)
-        bootstrap_values_effect.append(effect_size)
+        #bootstrap_values_effect.append(effect_size)
+
+        #provera Chi i a, b, c i d u svakom ciklusu
+        # print(f"Chi2: {chi_2}")
+        # print(f"a: {a}, b: {b}, c: {c}, d: {d}")
 
     # !!! end of bootstrap loop
 
@@ -475,7 +494,7 @@ if __name__ == "__main__":
     median_Sens = np.median(bootstrap_values_Sens)
     median_chi2 = np.median(bootstrap_values_chi2)
     median_p = np.median(bootstrap_values_p)
-    median_effect = np.median(bootstrap_values_effect)
+    #median_effect = np.median(bootstrap_values_effect)   # Cramer's V -> use OR instead
 
     # bootstrap 95% confidence intervals (CI) for chi2 statistics - to provide a range of likely values for the chi-square statistic
     lower_bound_chi2 = np.percentile(bootstrap_values_chi2, 2.5)
@@ -485,15 +504,16 @@ if __name__ == "__main__":
     lower_bound_p = np.percentile(bootstrap_values_p, 2.5)
     upper_bound_p = np.percentile(bootstrap_values_p, 97.5)
 
-    # bootstrap 95% confidence intervals (CI) for effect sizes
-    lower_bound_effect = np.percentile(bootstrap_values_effect, 2.5)
-    upper_bound_effect = np.percentile(bootstrap_values_effect, 97.5)
+    # bootstrap 95% confidence intervals (CI) for OR
+    lower_bound_OR = np.percentile(bootstrap_values_OR, 2.5)
+    upper_bound_OR = np.percentile(bootstrap_values_OR, 97.5)
 
     # Calculate the standard deviation of the chi-square statistics
     sd_chi2 = np.std(bootstrap_values_chi2)
 
     # Calculate statistical power 
     critical_value = chi2.ppf(0.95, df=1)
+    # print(f"critical value: {critical_value}")
     power = np.mean([chi_2 > critical_value for chi_2 in bootstrap_values_chi2])
 
 
@@ -513,9 +533,9 @@ if __name__ == "__main__":
         'p-value (1-tail)' : [median_p],
         'CI (p) - lower' : [lower_bound_p],
         'CI (p) - upper': [upper_bound_p], 
-        'Effect size': [median_effect],
-        'CI (Effect) - lower' : [lower_bound_effect],
-        'CI (Effect) - upper' : [upper_bound_effect],
+        # 'Effect size': [median_effect],
+        'CI (OR) - lower' : [lower_bound_OR],
+        'CI (OR) - upper' : [upper_bound_OR],
         'Standard deviation' : [sd_chi2],
         'Statistical power' : [power]
     })
@@ -534,6 +554,10 @@ if __name__ == "__main__":
 
     # Save bootstrap_values to a CSV file
     bootstrap_values_df = pd.DataFrame({
+        'a': bootstrap_values_a,
+        'b': bootstrap_values_b,
+        'c': bootstrap_values_c,
+        'd': bootstrap_values_d,
         'OR': bootstrap_values_OR,
         'RR': bootstrap_values_RR,
         'RRR': bootstrap_values_RRR,
@@ -542,7 +566,7 @@ if __name__ == "__main__":
         'Sensitivity': bootstrap_values_Sens, 
         'Chi2' : bootstrap_values_chi2,
         'p-value (1-tail)' : bootstrap_values_p,
-        'Effect' : bootstrap_values_effect
+        # 'Effect' : bootstrap_values_effect
     })
     bootstrap_values_df.to_csv('bootstrap_values.csv', index=False)
 
