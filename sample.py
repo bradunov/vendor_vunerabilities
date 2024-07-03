@@ -214,8 +214,8 @@ def similar(c, nc, selected_method):
         return False
     if c["CF_Industry"] != nc["CF_Industry"]:           # ako Industry nije isti - izbaci
         return False
-    if c["CF_CVSSSev"] != nc["CF_CVSSSev"]:             # ako CVSS Severity nije isti - izbaci
-        return False
+    #if c["CF_CVSSSev"] != nc["CF_CVSSSev"]:             # ako CVSS Severity nije isti - izbaci
+    #    return False
     # alternativno za CVSS: razlika CVSS treba da nije veca od 1
     # if abs(float(c["CF_CVSS"]) - float(nc["CF_CVSS"])) > 1:
     #    return False
@@ -230,12 +230,12 @@ def similar(c, nc, selected_method):
 
     # odabir argumenta za startovanje programa utice na atribute i confounding: 
     # ako se izabere psirt, onda bug bounty ide kao confounding; i obratno
-    if selected_method == ComparisonMethod.PCERT:
-        if c["GP_bugbounty"] != nc["GP_bugbounty"]:
-            return False
-    elif selected_method == ComparisonMethod.BUGBOUNTY:
-        if c["GP_psirt"] != nc["GP_psirt"]:
-            return False
+    #if selected_method == ComparisonMethod.PCERT:
+    #    if c["GP_bugbounty"] != nc["GP_bugbounty"]:
+    #        return False
+    #elif selected_method == ComparisonMethod.BUGBOUNTY:
+    #    if c["GP_psirt"] != nc["GP_psirt"]:
+    #        return False
 
     return True
 
