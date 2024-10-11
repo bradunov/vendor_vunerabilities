@@ -247,6 +247,9 @@ def C_by_vendors(c):
     # Iterate through the dictionary to collect unique CISAVendorNAME and their corresponding entries
     for entry in c:
         name = entry['CISAVendorNAME'] # extracts the value of "CISAVendorNAME"" attribute from the current entry and assigns it to the variable name
+        # ako hocemo da uzmemo samo po odredjenoj industriji u C' (moze verovatno i u create_cprim funkciji)
+        # industry = entry['CF_Industry'] #extracts industry if we wish to check per industry
+        # if industry == "Software" then # pa se ovo if/else ispod uvuce, da vazi samo za to if
         if name not in name_groups:
             name_groups[name] = [entry]
             total_distinct_names += 1
@@ -276,7 +279,7 @@ def sampling(Cvend, NC, selected_method):
             
         # prvo pravimo svi listu mogucih parnjaka za svaki cvi': proverava similarity cvi' i svakog svi, i da vendor nije medj CISA vendorima ((odnosno #da nije isti vendor):
         for nc in NC:
-            if similar(c, nc, selected_method) and nc['VendorinCisa'] != "1":                         # not equal_vendors(c, nc): 
+            if similar(c, nc, selected_method) and nc['VendorinCisa'] != "1":         # not equal_vendors(c, nc): 
                 cnt += 1  # brojimo koliko je slicnih za svaki cvi 
                 NC_sample.append(nc)  # skladistimo sve svi pandane u skup NC_sample
         l.append(cnt)
